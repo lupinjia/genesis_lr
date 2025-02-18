@@ -645,6 +645,13 @@ class LeggedRobot(BaseTask):
         # build
         self.scene.build(n_envs=self.num_envs)
         
+        if self.cfg.terrain.mesh_type=='plane': # the plane used has limited size, 
+                                                  # and the origin of the world is at the center of the plane
+            self.scene.viewer.set_camera_pose(
+                pos=(-self.cfg.terrain.plane_length/4-2.0, -self.cfg.terrain.plane_length/4, 2.5),
+                lookat=(-self.cfg.terrain.plane_length/4, -self.cfg.terrain.plane_length/4, 0.5),
+            )
+        
         self._get_env_origins()
         
         # name to indices

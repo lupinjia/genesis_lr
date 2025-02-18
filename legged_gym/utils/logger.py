@@ -33,8 +33,8 @@ class Logger:
         self.plot_process.start()
 
     def _plot(self):
-        nb_rows = 3
-        nb_cols = 3
+        nb_rows = 5
+        nb_cols = 4
         fig, axs = plt.subplots(nb_rows, nb_cols)
         for key, value in self.state_log.items():
             time = np.linspace(0, len(value)*self.dt, len(value))
@@ -92,6 +92,16 @@ class Logger:
         a = axs[2, 2]
         if log["dof_torque"]!=[]: a.plot(time, log["dof_torque"], label='measured')
         a.set(xlabel='time [s]', ylabel='Joint Torque [Nm]', title='Torque')
+        
+        # GRF and C_frc, C_spd
+        a = axs[3, 0]
+        if log["GRF_fl"]!=[]: a.plot(time, log["GRF_fl"], label="GRF")
+        a.set(xlabel="time [s]", ylabel="GRF_fl [N]", title="GRF")
+        a = axs[4, 0]
+        if log["E[C_frc_fl]"]: a.plot(time, log["E[C_frc_fl]"], label="E[C_frc_fl]")
+        a.set(xlabel="time [s]", ylabel="E[C_frc_fl]")
+        
+        
         a.legend()
         plt.show()
 
