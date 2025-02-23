@@ -2,9 +2,9 @@ import genesis as gs
 from genesis.utils.geom import quat_to_xyz, transform_by_quat, inv_quat, transform_quat_by_quat
 from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
 from legged_gym import LEGGED_GYM_ROOT_DIR, envs
-from time import time
 import numpy as np
 import os
+import sys
 
 import torch
 from torch import Tensor
@@ -14,33 +14,12 @@ from legged_gym import LEGGED_GYM_ROOT_DIR
 from legged_gym.envs.base.legged_robot import LeggedRobot
 from legged_gym.utils.math import wrap_to_pi, torch_rand_sqrt_float
 from legged_gym.utils.helpers import class_to_dict
+from legged_gym.utils.terrain import Terrain
 from legged_gym.utils.gs_utils import *
 from .go2_gait_config import GO2GaitCfg
 from scipy.stats import vonmises
 
 class GO2Gait(LeggedRobot):
-    
-    def __init__(self, cfg: GO2GaitCfg, sim_device, headless):
-        """ Parses the provided config file,
-            calls create_sim() (which creates, simulation, terrain and environments),
-            initilizes pytorch buffers used during training
-
-        Args:
-            cfg (Dict): Environment config file
-            device_type (string): 'cuda' or 'cpu'
-            device_id (int): 0, 1, ...
-            headless (bool): Run without rendering if True
-        """
-        self.cfg = cfg
-        self.height_samples = None
-        self.debug_viz = self.cfg.env.debug_viz
-        self.init_done = False
-        self._parse_cfg(self.cfg)
-        super().__init__(self.cfg, sim_device, headless)
-
-        self._init_buffers()
-        self._prepare_reward_function()
-        self.init_done = True
         
     def post_physics_step(self):
         """ check terminations, compute observations and rewards
@@ -114,8 +93,8 @@ class GO2Gait(LeggedRobot):
         self.reset_buf = torch.any(torch.norm(self.link_contact_forces[:, self.termination_indices, :], dim=-1)> 1.0, dim=1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
         self.reset_buf |= self.time_out_buf
-        self.check_base_euler_termination()
-        self.check_dof_limit_termination()
+        # self.check_base_euler_termination()
+        # self.check_dof_limit_termination()
     
     def check_base_euler_termination(self):
         """ Check if environments need to be reset
@@ -129,12 +108,6 @@ class GO2Gait(LeggedRobot):
         lower_limit_reset_buf = torch.any(self.dof_pos < self.dof_pos_limits[:, 0], dim=1)
         upper_limit_reset_buf = torch.any(self.dof_pos > self.dof_pos_limits[:, 1], dim=1)
         dof_pos_limit_reset_buf = torch.logical_or(lower_limit_reset_buf, upper_limit_reset_buf)
-        # print(f"lower_limit: {self.dof_pos_limits[:, 0]}")
-        # print(f"lower_limit_reset_buf: {lower_limit_reset_buf}")
-        print(f"upper_limit: {self.dof_pos_limits[:, 1]}")
-        print(f"dof_pos: {self.dof_pos}")
-        print(f"upper_limit_reset_buf: {upper_limit_reset_buf}")
-        # print(f"dof_pos_limit_reset_buf: {dof_pos_limit_reset_buf}")
         self.reset_buf |= dof_pos_limit_reset_buf
 
     def _post_physics_step_callback(self):
@@ -236,6 +209,11 @@ class GO2Gait(LeggedRobot):
                                     # self.clock_input,                                               # 4
                                     # self.phase_ratio,                                               # 2
                                     ),dim=-1)
+        if torch.isnan(self.obs_buf).any():
+            print("nan in obs_buf")
+            nan_ids = torch.isnan(self.obs_buf).any(dim=1).nonzero(as_tuple=False).flatten()
+            print(f"nan_ids: {nan_ids}")
+            sys.exit()
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
             heights = torch.clip(self.base_pos[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
@@ -423,6 +401,66 @@ class GO2Gait(LeggedRobot):
         self.robot.set_dofs_kp(self.p_gains, self.motor_dofs)
         self.robot.set_dofs_kv(self.d_gains, self.motor_dofs)
     
+    def create_sim(self):
+        """ Creates simulation, terrain and evironments
+        """
+        # create scene
+        self.scene = gs.Scene(
+            sim_options=gs.options.SimOptions(
+                dt=self.sim_dt, 
+                substeps=self.sim_substeps),
+            viewer_options=gs.options.ViewerOptions(
+                max_FPS=int(1 / self.dt * self.cfg.control.decimation),
+                camera_pos=(2.0, 0.0, 2.5),
+                camera_lookat=(0.0, 0.0, 0.5),
+                camera_fov=40,
+            ),
+            vis_options=gs.options.VisOptions(rendered_envs_idx=list(range(self.cfg.viewer.num_rendered_envs))),
+            rigid_options=gs.options.RigidOptions(
+                dt=self.sim_dt,
+                constraint_solver=gs.constraint_solver.Newton,
+                enable_collision=True,
+                enable_joint_limit=True,
+                enable_self_collision=self.cfg.asset.self_collisions,
+            ),
+            show_viewer= not self.headless,
+        )
+        # query rigid solver
+        for solver in self.scene.sim.solvers:
+            if not isinstance(solver, RigidSolver):
+                continue
+            self.rigid_solver = solver
+            
+        # add camera if needed
+        if self.cfg.viewer.add_camera:
+            self._setup_camera()
+        
+        # add terrain
+        mesh_type = self.cfg.terrain.mesh_type
+        if mesh_type=='plane':
+            self.terrain = self.scene.add_entity(gs.morphs.URDF(file="urdf/plane/plane.urdf", fixed=True))
+        elif mesh_type=='heightfield':
+            self.utils_terrain = Terrain(self.cfg.terrain)
+            self._create_heightfield()
+        elif mesh_type is not None:
+            raise ValueError("Terrain mesh type not recognised. Allowed types are [None, plane, heightfield, trimesh]")
+        self.terrain.set_friction(self.cfg.terrain.friction)
+        # specify the boundary of the heightfield
+        self.terrain_x_range = torch.zeros(2, device=self.device)
+        self.terrain_y_range = torch.zeros(2, device=self.device)
+        if self.cfg.terrain.mesh_type=='heightfield':
+            self.terrain_x_range[0] = -self.cfg.terrain.border_size + 1.0 # give a small margin(1.0m)
+            self.terrain_x_range[1] = self.cfg.terrain.border_size + self.cfg.terrain.num_rows * self.cfg.terrain.terrain_length - 1.0
+            self.terrain_y_range[0] = -self.cfg.terrain.border_size + 1.0
+            self.terrain_y_range[1] = self.cfg.terrain.border_size + self.cfg.terrain.num_cols * self.cfg.terrain.terrain_width - 1.0
+        elif self.cfg.terrain.mesh_type=='plane': # the plane used has limited size, 
+                                                  # and the origin of the world is at the center of the plane
+            self.terrain_x_range[0] = -self.cfg.terrain.plane_length/2+1
+            self.terrain_x_range[1] = self.cfg.terrain.plane_length/2-1
+            self.terrain_y_range[0] = -self.cfg.terrain.plane_length/2+1 # the plane is a square
+            self.terrain_y_range[1] = self.cfg.terrain.plane_length/2-1
+        self._create_envs()
+    
     def _create_envs(self):
         """ Creates environments:
              1. loads the robot URDF/MJCF asset, create entity
@@ -447,14 +485,13 @@ class GO2Gait(LeggedRobot):
         # build
         self.scene.build(n_envs=self.num_envs)
         
-        if self.cfg.terrain.mesh_type=='plane': # the plane used has limited size, 
-                                                  # and the origin of the world is at the center of the plane
-            self.scene.viewer.set_camera_pose(
-                pos=(-self.cfg.terrain.plane_length/4-2.0, -self.cfg.terrain.plane_length/4, 2.5),
-                lookat=(-self.cfg.terrain.plane_length/4, -self.cfg.terrain.plane_length/4, 0.5),
-            )
-        
         self._get_env_origins()
+        
+        if self.cfg.terrain.mesh_type=='plane' and not self.headless:
+            self.scene.viewer.set_camera_pose(
+                pos=((self.env_origins[9405, 0]-2.0).cpu().numpy(), self.env_origins[9405, 1].cpu().numpy(), 2.5),
+                lookat=(self.env_origins[9405, 0].cpu().numpy(), self.env_origins[9405, 1].cpu().numpy(), 0.5),
+            )
         
         # name to indices
         self.motor_dofs = [self.robot.get_joint(name).dof_idx_local for name in self.dof_names]
@@ -496,7 +533,9 @@ class GO2Gait(LeggedRobot):
         
         # dof position limits
         self.dof_pos_limits = torch.stack(self.robot.get_dofs_limit(self.motor_dofs), dim=1)
+        self.dof_vel_limits = torch.tensor(self.cfg.asset.dof_vel_limits, device=self.device) # genesis doesn't provide get_dofs_vel_limit api, so specify it by hand
         self.torque_limits = self.robot.get_dofs_force_range(self.motor_dofs)[1]
+        print(f"torque limits: {self.torque_limits}")
         for i in range(self.dof_pos_limits.shape[0]):
             # soft limits
             m = (self.dof_pos_limits[i, 0] + self.dof_pos_limits[i, 1]) / 2

@@ -32,10 +32,10 @@ def play(args):
     # initial state randomization
     env_cfg.init_state.yaw_angle_range = [0., 0.]
     # velocity range
-    # env_cfg.commands.ranges.lin_vel_x = [0.5, 1.0]
-    # env_cfg.commands.ranges.lin_vel_y = [0., 0.]
-    # env_cfg.commands.ranges.ang_vel_yaw = [0., 0.]
-    # env_cfg.commands.ranges.heading = [0, 0]
+    env_cfg.commands.ranges.lin_vel_x = [0.5, 1.0]
+    env_cfg.commands.ranges.lin_vel_y = [0., 0.]
+    env_cfg.commands.ranges.ang_vel_yaw = [0., 0.]
+    env_cfg.commands.ranges.heading = [0, 0]
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -96,8 +96,8 @@ def play(args):
         if i < stop_state_log:
             logger.log_states(
                 {
-                    "GRF_fl": env.foot_contact_force_fl[0, 2].item(),
-                    "E[C_frc_fl]": env.exp_C_frc_fl[0].item(),
+                    # "GRF_fl": env.foot_contact_force_fl[0, 2].item(),
+                    # "E[C_frc_fl]": env.exp_C_frc_fl[0].item(),
                     'dof_pos_target': actions[robot_index, joint_index].item() * env.cfg.control.action_scale,
                     'dof_pos': env.dof_pos[robot_index, joint_index].item(),
                     'dof_vel': env.dof_vel[robot_index, joint_index].item(),

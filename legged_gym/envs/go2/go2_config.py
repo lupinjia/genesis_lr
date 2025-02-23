@@ -57,6 +57,10 @@ class GO2Cfg( LeggedRobotCfg ):
             'RL_hip_joint',
             'RL_thigh_joint',
             'RL_calf_joint',]
+        dof_vel_limits = [30.1, 30.1, 15.7, # hip, thigh, calf
+                           30.1, 30.1, 15.7,
+                           30.1, 30.1, 15.7,
+                           30.1, 30.1, 15.7] # get from urdf
         foot_name = ["foot"]
         penalize_contacts_on = ["thigh", "calf"]
         terminate_after_contacts_on = ["base"]

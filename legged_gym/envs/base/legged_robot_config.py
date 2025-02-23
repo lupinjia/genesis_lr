@@ -66,7 +66,7 @@ class LeggedRobotCfg(BaseConfig):
         damping = {'joint_a': 1.0, 'joint_b': 1.5}     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.5
-        dt =  0.02 # control frequency 50Hz
+        dt =  0.02
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
         
@@ -77,6 +77,7 @@ class LeggedRobotCfg(BaseConfig):
         foot_name = "None"     # name of the feet bodies, used to index body state and contact force tensors
         penalize_contacts_on = []
         terminate_after_contacts_on = []
+        dof_vel_limits = [10.0, 10.0]
         links_to_keep = []
         self_collisions = True   # enable self collisions by default
         fix_base_link = False    # fix base link to the world
@@ -117,9 +118,7 @@ class LeggedRobotCfg(BaseConfig):
         soft_dof_vel_limit = 1.
         soft_torque_limit = 1.
         base_height_target = 1.
-        termination_if_roll_greater_than= 0.4
-        termination_if_pitch_greater_than= 0.4
-        termination_if_height_lower_than= 0.2
+        termination_if_roll_greater_than= 0.785 # pi/4
 
     class normalization:
         class obs_scales:

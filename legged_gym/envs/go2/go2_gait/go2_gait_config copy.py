@@ -1,13 +1,39 @@
-from legged_gym.envs.go2.go2_config import GO2Cfg, GO2CfgPPO
+from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 import torch
 
-class GO2GaitCfg( GO2Cfg ):
-    class env( GO2Cfg.env ):
-        num_envs = 10000
+class GO2GaitCfg( LeggedRobotCfg ):
+    class env( LeggedRobotCfg.env ):
+        num_envs = 100
         num_observations = 48
-        num_privileged_obs = 60
         num_actions = 12
-    class control( GO2Cfg.control ):
+    
+    class terrain( LeggedRobotCfg.terrain ):
+        mesh_type = "plane" # none, plane, heightfield
+        friction = 1.0
+        restitution = 0.
+        
+    class init_state( LeggedRobotCfg.init_state ):
+        pos = [0.0, 0.0, 0.42] # x,y,z [m]
+        default_joint_angles = { # = target angles [rad] when action = 0.0
+            'FL_hip_joint': 0.0,   # [rad]
+            'RL_hip_joint': 0.0,   # [rad]
+            'FR_hip_joint': -0.0 ,  # [rad]
+            'RR_hip_joint': -0.0,   # [rad]
+
+            'FL_thigh_joint': 0.8,     # [rad]
+            'RL_thigh_joint': 0.8,   # [rad]
+            'FR_thigh_joint': 0.8,     # [rad]
+            'RR_thigh_joint': 0.8,   # [rad]
+
+            'FL_calf_joint': -1.5,   # [rad]
+            'RL_calf_joint': -1.5,    # [rad]
+            'FR_calf_joint': -1.5,  # [rad]
+            'RR_calf_joint': -1.5,    # [rad]
+        }
+        # initial state randomization
+        yaw_angle_range = [0., 3.14] # min max [rad]
+
+    class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
         # control_type = 'P'
         stiffness = {'joint': 20.}   # [N*m/rad]
@@ -15,14 +41,34 @@ class GO2GaitCfg( GO2Cfg ):
         action_scale = 0.25 # action scale: target angle = actionScale * action + defaultAngle
         dt =  0.02  # control frequency 50Hz
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
+
+    class asset( LeggedRobotCfg.asset ):
+        file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
+        dof_names = [        # specify yhe sequence of actions
+            'FR_hip_joint',
+            'FR_thigh_joint',
+            'FR_calf_joint',
+            'FL_hip_joint',
+            'FL_thigh_joint',
+            'FL_calf_joint',
+            'RR_hip_joint',
+            'RR_thigh_joint',
+            'RR_calf_joint',
+            'RL_hip_joint',
+            'RL_thigh_joint',
+            'RL_calf_joint',]
+        foot_name = ["foot"]
+        penalize_contacts_on = ["thigh", "calf"]
+        terminate_after_contacts_on = ["base"]
+        links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
+        self_collisions = True
   
-    class rewards( GO2Cfg.rewards ):
-        soft_dof_pos_limit = 1.0
+    class rewards( LeggedRobotCfg.rewards ):
+        soft_dof_pos_limit = 0.9
         base_height_target = 0.36
-        class scales( GO2Cfg.rewards.scales ):
+        class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
             dof_pos_limits = -10.0
-            dof_vel_limits = -5.0
             collision = -1.0
             # command tracking
             tracking_lin_vel = 1.0
@@ -57,13 +103,13 @@ class GO2GaitCfg( GO2Cfg ):
             swing_phase_ratio = b_swing - a_swing
             stance_phase_ratio = 1 - swing_phase_ratio
     
-    class commands( GO2Cfg.commands ):
+    class commands( LeggedRobotCfg.commands ):
         curriculum = True
         max_curriculum = 1.
         num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
         resampling_time = 10.  # time before command are changed[s]
         heading_command = True # if true: compute ang vel command from heading error
-        class ranges( GO2Cfg.commands.ranges ):
+        class ranges( LeggedRobotCfg.commands.ranges ):
             lin_vel_x = [-0.5, 0.5] # min max [m/s]
             lin_vel_y = [-1.0, 1.0]   # min max [m/s]
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
@@ -81,40 +127,23 @@ class GO2GaitCfg( GO2Cfg ):
         randomize_com_displacement = True
         com_displacement_range = [-0.01, 0.01]
     
-    class noise:
-        add_noise = True
-        noise_level = 1.0 # scales other values
-        class noise_scales:
-            dof_pos = 0.01
-            dof_vel = 0.5
-            lin_vel = 0.1
-            ang_vel = 0.2
-            gravity = 0.05
-            height_measurements = 0.1
-    
     # viewer camera:
-    class viewer( GO2Cfg.viewer ):
+    class viewer:
         ref_env = 0
         pos = [10, 0, 6]       # [m]
         lookat = [11., 5, 3.]  # [m]
         num_rendered_envs = 10  # number of environments to be rendered
         add_camera = False
-    
-    class sim( GO2Cfg.sim ):
-        use_implicit_controller = False
-        gravity = [0., 0. ,-9.81]  # [m/s^2]
 
-class GO2GaitCfgPPO( GO2CfgPPO ):
+class GO2GaitCfgPPO( LeggedRobotCfgPPO ):
     seed = 0
     runner_class_name = 'OnPolicyRunner'
-    class policy( GO2CfgPPO.policy ):
-        activation = 'elu' # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
-    class algorithm( GO2CfgPPO.algorithm ):
+    class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
-    class runner( GO2CfgPPO.runner ):
+    class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'go2_gait'
         save_interval = 100
-        load_run = "Feb18_22-32-35_"
+        load_run = "Feb18_09-33-24_"
         checkpoint = -1
         max_iterations = 2000

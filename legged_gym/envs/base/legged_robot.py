@@ -53,15 +53,12 @@ class LeggedRobot(BaseTask):
         if self.cfg.sim.use_implicit_controller: # use embedded pd controller
             target_dof_pos = self._compute_target_dof_pos(exec_actions)
             self.robot.control_dofs_position(target_dof_pos, self.motor_dofs)
+            self.torques = self.robot.get_dofs_control_force(self.motor_dofs)
             self.scene.step()
         else:
             for _ in range(self.cfg.control.decimation): # use self-implemented pd controller
                 self.torques = self._compute_torques(exec_actions)
-                if self.num_build_envs == 0:
-                    torques = self.torques.squeeze()
-                    self.robot.control_dofs_force(torques, self.motor_dofs)
-                else:
-                    self.robot.control_dofs_force(self.torques, self.motor_dofs)
+                self.robot.control_dofs_force(self.torques, self.motor_dofs)
                 self.scene.step()
                 self.dof_pos[:] = self.robot.get_dofs_position(self.motor_dofs)
                 self.dof_vel[:] = self.robot.get_dofs_velocity(self.motor_dofs)
@@ -106,8 +103,7 @@ class LeggedRobot(BaseTask):
         self.check_termination()
         self.compute_reward()
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
-        if self.num_build_envs > 0:
-            self.reset_idx(env_ids)
+        self.reset_idx(env_ids)
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
 
         self.last_actions[:] = self.actions[:]
@@ -124,8 +120,8 @@ class LeggedRobot(BaseTask):
         out_of_bound_buf = x_out_of_bound | y_out_of_bound
         envs_idx = out_of_bound_buf.nonzero(as_tuple=False).flatten()
         # reset base position to initial position
-        self.base_pos[envs_idx] = self.base_init_pos
-        self.base_pos[envs_idx] += self.env_origins[envs_idx]
+        self.base_pos[envs_idx, :] = self.base_init_pos[:]
+        self.base_pos[envs_idx, :] += self.env_origins[envs_idx, :]
         self.robot.set_pos(self.base_pos[envs_idx], zero_velocity=False, envs_idx=envs_idx)
 
     def check_termination(self):
@@ -134,6 +130,9 @@ class LeggedRobot(BaseTask):
         self.reset_buf = torch.any(torch.norm(self.link_contact_forces[:, self.termination_indices, :], dim=-1)> 1.0, dim=1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
         self.reset_buf |= self.time_out_buf
+        # base_euler
+        base_euler_reset_buf = torch.abs(self.base_euler[:, 0]) > self.cfg.rewards.termination_if_roll_greater_than
+        self.reset_buf |= base_euler_reset_buf
         
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -257,7 +256,7 @@ class LeggedRobot(BaseTask):
                 camera_lookat=(0.0, 0.0, 0.5),
                 camera_fov=40,
             ),
-            vis_options=gs.options.VisOptions(n_rendered_envs=min(self.cfg.viewer.num_rendered_envs, self.num_envs)),
+            vis_options=gs.options.VisOptions(rendered_envs_idx=list(range(self.cfg.viewer.num_rendered_envs))),
             rigid_options=gs.options.RigidOptions(
                 dt=self.sim_dt,
                 constraint_solver=gs.constraint_solver.Newton,
@@ -363,7 +362,8 @@ class LeggedRobot(BaseTask):
             self.batched_p_gains * (actions_scaled + self.default_dof_pos - self.dof_pos)
             - self.batched_d_gains * self.dof_vel
         )
-        return torques
+        torques_clipped = torch.clip(torques, -(self.torque_limits.repeat(self.num_envs, 1)), self.torque_limits.repeat(self.num_envs, 1))
+        return torques_clipped # force the torques to be within the limits
     
     def _compute_target_dof_pos(self, actions):
         # control_type = 'P'
@@ -564,6 +564,7 @@ class LeggedRobot(BaseTask):
             device=self.device,
             dtype=gs.tc_float,
         )
+        
         # PD control
         stiffness = self.cfg.control.stiffness
         damping = self.cfg.control.damping
@@ -645,14 +646,13 @@ class LeggedRobot(BaseTask):
         # build
         self.scene.build(n_envs=self.num_envs)
         
-        if self.cfg.terrain.mesh_type=='plane': # the plane used has limited size, 
-                                                  # and the origin of the world is at the center of the plane
+        self._get_env_origins()
+        
+        if self.cfg.terrain.mesh_type=='plane' and not self.headless:
             self.scene.viewer.set_camera_pose(
                 pos=(-self.cfg.terrain.plane_length/4-2.0, -self.cfg.terrain.plane_length/4, 2.5),
                 lookat=(-self.cfg.terrain.plane_length/4, -self.cfg.terrain.plane_length/4, 0.5),
             )
-        
-        self._get_env_origins()
         
         # name to indices
         self.motor_dofs = [self.robot.get_joint(name).dof_idx_local for name in self.dof_names]
@@ -680,8 +680,9 @@ class LeggedRobot(BaseTask):
         assert len(self.feet_indices) > 0
         self.feet_link_indices_world_frame = [i+1 for i in self.feet_indices]
         
-        # dof position limits
+        # dof limits
         self.dof_pos_limits = torch.stack(self.robot.get_dofs_limit(self.motor_dofs), dim=1)
+        self.dof_vel_limits = torch.tensor(self.cfg.asset.dof_vel_limits, device=self.device) # genesis doesn't provide get_dofs_vel_limit api, so specify it by hand
         self.torque_limits = self.robot.get_dofs_force_range(self.motor_dofs)[1]
         for i in range(self.dof_pos_limits.shape[0]):
             # soft limits
@@ -792,7 +793,7 @@ class LeggedRobot(BaseTask):
             num_rows = np.ceil(self.num_envs / num_cols)
             xx, yy = torch.meshgrid(torch.arange(num_rows), torch.arange(num_cols))
             # plane has limited size, we need to specify spacing base on num_envs, to make sure all robots are within the plane
-            # restrict envs to a square of [plane_length/2, plane_length/2]
+            # restrict envs to a square of size [plane_length/2, plane_length/2]
             spacing = min((self.cfg.terrain.plane_length / 2) / (num_rows-1), (self.cfg.terrain.plane_length / 2) / (num_cols-1))
             self.env_origins[:, 0] = spacing * xx.flatten()[:self.num_envs]
             self.env_origins[:, 1] = spacing * yy.flatten()[:self.num_envs]
@@ -903,10 +904,10 @@ class LeggedRobot(BaseTask):
         out_of_limits += (self.dof_pos - self.dof_pos_limits[:, 1]).clip(min=0.)
         return torch.sum(out_of_limits, dim=1)
 
-    # def _reward_dof_vel_limits(self):
-    #     # Penalize dof velocities too close to the limit
-    #     # clip to max error = 1 rad/s per joint to avoid huge penalties
-    #     return torch.sum((torch.abs(self.dof_vel) - self.dof_vel_limits*self.cfg.rewards.soft_dof_vel_limit).clip(min=0., max=1.), dim=1)
+    def _reward_dof_vel_limits(self):
+        # Penalize dof velocities too close to the limit
+        # clip to max error = 1 rad/s per joint to avoid huge penalties
+        return torch.sum((torch.abs(self.dof_vel) - self.dof_vel_limits*self.cfg.rewards.soft_dof_vel_limit).clip(min=0., max=1.), dim=1)
 
     def _reward_torque_limits(self):
         # penalize torques too close to the limit
