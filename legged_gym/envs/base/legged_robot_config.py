@@ -73,6 +73,7 @@ class LeggedRobotCfg(BaseConfig):
         decimation = 4
         
     class asset:
+        name = None
         dof_names = ["joint_a", "joint_b"]
         file = ""
         links_to_keep = []     # links that are not merged because of fixed joints

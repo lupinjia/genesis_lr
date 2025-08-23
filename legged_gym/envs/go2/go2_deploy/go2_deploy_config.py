@@ -51,6 +51,7 @@ class GO2DeployCfg(LeggedRobotCfg):
         decimation = 4  # decimation: Number of control action updates @ sim DT per policy DT
 
     class asset(LeggedRobotCfg.asset):
+        name = "go2" # name of the robot
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
         dof_names = [        # specify yhe sequence of actions
             'FR_hip_joint',
