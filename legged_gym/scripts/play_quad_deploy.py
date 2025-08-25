@@ -32,15 +32,13 @@ def play(args):
     env_cfg.noise.add_noise = True
     env_cfg.domain_rand.enable = False
     env_cfg.asset.fix_base_link = False
-    # env_cfg.rewards.periodic_reward_framework.gait_period_range = [0.3, 0.6]
-    # env_cfg.rewards.base_height_target_range = [0.25, 0.35]
+    env_cfg.rewards.behavior_params_range.gait_period_range = [0.3, 0.3]
+    env_cfg.rewards.behavior_params_range.base_height_target_range = [0.35, 0.35]
+    env_cfg.rewards.behavior_params_range.foot_clearance_target_range = [0.03, 0.03]
     # initial state randomization
     env_cfg.init_state.yaw_angle_range = [0., 0.]
     # velocity range
     env_cfg.commands.ranges.lin_vel_x = [-1.0, 1.0]
-    env_cfg.commands.ranges.lin_vel_y = [-1.0, 1.0]
-    env_cfg.commands.ranges.ang_vel_yaw = [0., 0.]
-    env_cfg.commands.ranges.heading = [0, 0]
 
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -70,6 +68,9 @@ def play(args):
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
         obs, _, rews, dones, infos = env.step(actions.detach())
+
+        print(f"base height: {env.base_pos[robot_index, 2].item()}")
+        print(f"foot height: {env.feet_pos[robot_index, :, 2]}")
         if FOLLOW_ROBOT:
             # refresh where camera looks at(robot 0 base)
             camera_lookat_follow = env.base_pos[robot_index, :].cpu().numpy()

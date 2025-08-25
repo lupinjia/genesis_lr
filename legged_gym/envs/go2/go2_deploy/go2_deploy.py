@@ -217,6 +217,11 @@ class GO2Deploy(LeggedRobot):
         if self.cfg.env.send_timeouts:
             self.extras["time_outs"] = self.time_out_buf
 
+        # Behavior parameters
+        self.extras["episode"]["gait_period"] = torch.mean(self.gait_period[:])
+        self.extras["episode"]["base_height_target"] = torch.mean(self.base_height_target[:])
+        self.extras["episode"]["foot_clearance_target"] = torch.mean(self.foot_clearance_target[:])
+
         # reset action queue and delay
         if self.cfg.domain_rand.randomize_ctrl_delay:
             self.action_queue[env_ids] *= 0.
@@ -241,24 +246,24 @@ class GO2Deploy(LeggedRobot):
             self.max_episode_length > 0.8 * self.reward_scales["quad_periodic_gait"]:
             # gait period
             self.gait_period[env_ids, :] = gs_rand_float(
-                self.cfg.rewards.periodic_reward_framework.gait_period_range[0],
-                self.cfg.rewards.periodic_reward_framework.gait_period_range[1],
+                self.cfg.rewards.behavior_params_range.gait_period_range[0],
+                self.cfg.rewards.behavior_params_range.gait_period_range[1],
                 (len(env_ids), 1), device=self.device
             )
 
         if torch.mean(self.episode_sums["tracking_base_height"][env_ids]) / \
             self.max_episode_length > 0.9 * self.reward_scales["tracking_base_height"]:
             self.base_height_target[env_ids, :] = gs_rand_float(
-                self.cfg.rewards.base_height_target_range[0],
-                self.cfg.rewards.base_height_target_range[1],
+                self.cfg.rewards.behavior_params_range.base_height_target_range[0],
+                self.cfg.rewards.behavior_params_range.base_height_target_range[1],
                 (len(env_ids), 1), device=self.device
             )
 
         if torch.mean(self.episode_sums["foot_clearance"][env_ids]) / \
             self.max_episode_length > 0.75 * self.reward_scales["foot_clearance"]:
             self.foot_clearance_target[env_ids, :] = gs_rand_float(
-                self.cfg.rewards.foot_clearance_target_range[0],
-                self.cfg.rewards.foot_clearance_target_range[1],
+                self.cfg.rewards.behavior_params_range.foot_clearance_target_range[0],
+                self.cfg.rewards.behavior_params_range.foot_clearance_target_range[1],
                 (len(env_ids), 1), device=self.device
             )
 
@@ -270,8 +275,12 @@ class GO2Deploy(LeggedRobot):
         for i in range(4):
             self.clock_input[:, i] = torch.sin(2 * torch.pi * (self.phi + self.theta[:, i].unsqueeze(1))).squeeze(-1)
     
-    # def _post_physics_step_callback(self):
-    #     super()._post_physics_step_callback()
+    def _post_physics_step_callback(self):
+        super()._post_physics_step_callback()
+        env_ids = (self.episode_length_buf % int(
+            self.cfg.rewards.behavior_params_range.resampling_time / self.dt) == 0).nonzero(as_tuple=False).flatten()
+        # Periodic Reward Framework. resample phase and theta
+        self._resample_behavior_params(env_ids)
 
     def _get_noise_scale_vec(self):
         """ Sets a vector used to scale the noise added to the observations.
@@ -338,7 +347,7 @@ class GO2Deploy(LeggedRobot):
         self.gait_time = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)
         self.phi = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)
         self.gait_period = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)
-        self.gait_period[:] = self.cfg.rewards.periodic_reward_framework.gait_period_range[1]
+        self.gait_period[:] = self.cfg.rewards.behavior_params_range.gait_period_range[1]
         self.clock_input = torch.zeros(
             self.num_envs,
             4,
@@ -352,11 +361,11 @@ class GO2Deploy(LeggedRobot):
         self.base_height_target = torch.zeros(
             self.num_envs, 1, dtype=gs.tc_float, device=self.device
         )
-        self.base_height_target[:, :] = self.cfg.rewards.base_height_target_range[1]
+        self.base_height_target[:, :] = self.cfg.rewards.behavior_params_range.base_height_target_range[1]
         self.foot_clearance_target = torch.zeros(
             self.num_envs, 1, dtype=gs.tc_float, device=self.device
         )
-        self.foot_clearance_target[:, :] = self.cfg.rewards.foot_clearance_target_range[0]
+        self.foot_clearance_target[:, :] = self.cfg.rewards.behavior_params_range.foot_clearance_target_range[0]
 
     def _create_envs(self):
         super()._create_envs()
@@ -513,3 +522,17 @@ class GO2Deploy(LeggedRobot):
             1) - self.measured_heights, dim=1)
         rew = torch.square(base_height - self.base_height_target.squeeze(1))
         return torch.exp(-rew / self.cfg.rewards.base_height_tracking_sigma)
+    
+    def _reward_foot_clearance(self):
+        """
+        Encourage feet to be close to desired height while swinging
+        """
+        foot_vel_xy_norm = torch.norm(self.feet_vel[:, :, :2], dim=-1)
+        clearance_error = torch.sum(
+            foot_vel_xy_norm * torch.square(
+                self.feet_pos[:, :, 2] -
+                self.foot_clearance_target -
+                self.cfg.rewards.foot_height_offset
+            ), dim=-1
+        )
+        return torch.exp(-clearance_error / self.cfg.rewards.foot_clearance_tracking_sigma)

@@ -74,16 +74,10 @@ class GO2DeployCfg(LeggedRobotCfg):
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.9
-        
-        base_height_target_range = [0.2, 0.35]
         base_height_tracking_sigma = 0.01
-        
-        foot_clearance_target_range = [0.03, 0.1]  # desired foot clearance above ground [m]
         foot_height_offset = 0.022 # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
-        
         about_landing_threshold = 0.03
-        
         only_positive_rewards = True
 
         class scales(LeggedRobotCfg.rewards.scales):
@@ -93,9 +87,9 @@ class GO2DeployCfg(LeggedRobotCfg):
             # command tracking
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
-            tracking_base_height = 1.0
+            tracking_base_height = 0.6
             foot_clearance = 1.0
-            quad_periodic_gait = 1.0
+            quad_periodic_gait = 0.5 # 1.0 for smooth, 0.5 for step
             # smooth
             lin_vel_z = -0.5
             ang_vel_xy = -0.05
@@ -112,14 +106,19 @@ class GO2DeployCfg(LeggedRobotCfg):
             '''Periodic reward framework in OSU's paper(https://arxiv.org/abs/2011.01387)'''
             gait_function_type = "step" # can be "step" or "smooth"
             kappa = 20
-            resampling_time = 6.0                       # gait resampling time [s]
-            gait_period_range = [0.3, 0.6]                         # gait period [s]
             # start of swing is all the same
             b_swing = 0.5
             theta_fl = 0.0  # front left leg
             theta_fr = 0.5
             theta_rl = 0.5
             theta_rr = 0.0
+        
+        class behavior_params_range:
+            resampling_time = 6.0
+            gait_period_range = [0.3, 0.6]
+            foot_clearance_target_range = [0.03, 0.1]
+            base_height_target_range = [0.2, 0.35]
+            
 
     class commands(LeggedRobotCfg.commands):
         curriculum = True
@@ -181,7 +180,7 @@ class GO2DeployCfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = 'step_gait'
         experiment_name = 'go2_deploy'
-        save_interval = 100
-        load_run = "Aug13_18-24-58_step_gait"
+        save_interval = 500
+        load_run = "Aug24_18-59-18_step_gait"
         checkpoint = -1
-        max_iterations = 3000
+        max_iterations = 4000
