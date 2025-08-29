@@ -1,7 +1,7 @@
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 
-class GO2DeployCfg(LeggedRobotCfg):
+class GO2WTWCfg(LeggedRobotCfg):
 
     class env(LeggedRobotCfg.env):
         num_envs = 4096
@@ -170,7 +170,7 @@ class GO2DeployCfg(LeggedRobotCfg):
             gravity = 0.05
             height_measurements = 0.1
 
-class GO2DeployCfgPPO(LeggedRobotCfgPPO):
+class GO2WTWCfgPPO(LeggedRobotCfgPPO):
     seed = 0
     runner_class_name = "OnPolicyRunner"
 
@@ -179,7 +179,7 @@ class GO2DeployCfgPPO(LeggedRobotCfgPPO):
 
     class runner(LeggedRobotCfgPPO.runner):
         run_name = 'step_gait'
-        experiment_name = 'go2_deploy'
+        experiment_name = 'go2_wtw'
         save_interval = 500
         load_run = "Aug24_18-59-18_step_gait"
         checkpoint = -1

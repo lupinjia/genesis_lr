@@ -20,7 +20,7 @@ from collections import deque
 from scipy.stats import vonmises
 
 
-class GO2Deploy(LeggedRobot):
+class GO2WTW(LeggedRobot):
     
     def post_physics_step(self):
         """ check terminations, compute observations and rewards
