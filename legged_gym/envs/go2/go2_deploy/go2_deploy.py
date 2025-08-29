@@ -221,6 +221,7 @@ class GO2Deploy(LeggedRobot):
         self.extras["episode"]["gait_period"] = torch.mean(self.gait_period[:])
         self.extras["episode"]["base_height_target"] = torch.mean(self.base_height_target[:])
         self.extras["episode"]["foot_clearance_target"] = torch.mean(self.foot_clearance_target[:])
+        self.extras["episode"]["pitch_target"] = torch.mean(self.pitch_target[:])
 
         # reset action queue and delay
         if self.cfg.domain_rand.randomize_ctrl_delay:
@@ -264,6 +265,14 @@ class GO2Deploy(LeggedRobot):
             self.foot_clearance_target[env_ids, :] = gs_rand_float(
                 self.cfg.rewards.behavior_params_range.foot_clearance_target_range[0],
                 self.cfg.rewards.behavior_params_range.foot_clearance_target_range[1],
+                (len(env_ids), 1), device=self.device
+            )
+        
+        if torch.mean(self.episode_sums["orientation"][env_ids]) / \
+            self.max_episode_length > 0.75 * self.reward_scales["orientation"]:
+            self.pitch_target[env_ids, :] = gs_rand_float(
+                self.cfg.rewards.behavior_params_range.pitch_target_range[0],
+                self.cfg.rewards.behavior_params_range.pitch_target_range[1],
                 (len(env_ids), 1), device=self.device
             )
 
@@ -366,6 +375,10 @@ class GO2Deploy(LeggedRobot):
             self.num_envs, 1, dtype=gs.tc_float, device=self.device
         )
         self.foot_clearance_target[:, :] = self.cfg.rewards.behavior_params_range.foot_clearance_target_range[0]
+        self.pitch_target = torch.zeros(
+            self.num_envs, 1, dtype=gs.tc_float, device=self.device
+        )
+        self.pitch_target[:, :] = self.cfg.rewards.behavior_params_range.pitch_target_range[1]
 
     def _create_envs(self):
         super()._create_envs()
@@ -536,3 +549,8 @@ class GO2Deploy(LeggedRobot):
             ), dim=-1
         )
         return torch.exp(-clearance_error / self.cfg.rewards.foot_clearance_tracking_sigma)
+
+    def _reward_orientation(self):
+        roll_error = torch.square(self.base_euler[:, 0])
+        pitch_error = torch.square(self.base_euler[:, 1] - self.pitch_target.squeeze(1))
+        return torch.exp(-(roll_error + pitch_error) / self.cfg.rewards.euler_tracking_sigma)

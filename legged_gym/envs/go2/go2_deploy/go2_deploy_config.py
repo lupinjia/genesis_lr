@@ -77,6 +77,7 @@ class GO2DeployCfg(LeggedRobotCfg):
         base_height_tracking_sigma = 0.01
         foot_height_offset = 0.022 # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
+        euler_tracking_sigma = 0.1
         about_landing_threshold = 0.03
         only_positive_rewards = True
 
@@ -88,12 +89,12 @@ class GO2DeployCfg(LeggedRobotCfg):
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
             tracking_base_height = 0.6
+            orientation = 0.6
             foot_clearance = 1.0
             quad_periodic_gait = 0.5 # 1.0 for smooth, 0.5 for step
             # smooth
             lin_vel_z = -0.5
             ang_vel_xy = -0.05
-            orientation = -2.0
             dof_vel = -5.e-4
             dof_acc = -2.e-7
             action_rate = -0.01
@@ -117,7 +118,8 @@ class GO2DeployCfg(LeggedRobotCfg):
             resampling_time = 6.0
             gait_period_range = [0.3, 0.6]
             foot_clearance_target_range = [0.03, 0.1]
-            base_height_target_range = [0.2, 0.35]
+            base_height_target_range = [0.2, 0.4]
+            pitch_target_range = [-0.2, 0.2]
             
 
     class commands(LeggedRobotCfg.commands):
