@@ -45,6 +45,7 @@ class GO2Cfg( LeggedRobotCfg ):
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
 
     class asset( LeggedRobotCfg.asset ):
+        name = "go2"
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
         dof_names = [        # specify the sequence of actions
             'FR_hip_joint',
@@ -71,10 +72,9 @@ class GO2Cfg( LeggedRobotCfg ):
         foot_clearance_target = 0.05 # desired foot clearance above ground [m]
         foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
-        only_positive_rewards = False
+        only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
-            termination = -200.0
             dof_pos_limits = -10.0
             collision = -1.0
             # command tracking
@@ -92,7 +92,6 @@ class GO2Cfg( LeggedRobotCfg ):
             torques = -2.e-4
             # gait
             feet_air_time = 1.0
-            foot_clearance = 0.5
     
     class commands( LeggedRobotCfg.commands ):
         curriculum = True

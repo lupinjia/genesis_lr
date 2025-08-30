@@ -7,6 +7,8 @@ Two groups are tested:
 
     ![](./exp_C_frc_smooth_gait.png)
 
+    When `exp_C_frc` is -1, it means foot contact forces are penalized (swing phase); and when `exp_C_frc` is 0, it means foot contact forces are ignored and foot velocity is penalized on the meanwhile (stance phase)
+
 - **Step Gait Function**
 
     Substitute `uniped_periodic_gait` function with a simple step function. Gait indicator curves for this group are shown below:
@@ -21,7 +23,9 @@ In simulation, difference between **Smooth Gait Function** group and **Step Gait
 
     ![](./gait_comparison_value_vs_step.png)few
 
-- In the context of single-gait learning, **Step Gait Function** group has higher reward, because of the absence of the ambiguous "-0.5" value in **Smooth Gait Function**.
+- In the context of single-gait learning, **Step Gait Function** group has higher reward, because of the absence of the ambiguous "-0.5" value in **Smooth Gait Function**. But at the end of the day, both methods can learn single gait successfully.
+
+- For multi-gait learning, I have tested learning of three kinds of gaits on go2: trot, bound, pace. Both methods have successfully learned three kinds of gaits and the transition between them. However, the computation efficiency is lower for **Smooth Gait Function** because of the complex formulation and operations to get the gait indicator.
   
   
 
