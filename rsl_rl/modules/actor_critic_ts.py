@@ -39,7 +39,6 @@ from .actor_critic import get_activation
 Actor-Critic for Teacher-Student architecture.
 '''
 
-
 class ActorCriticTS(nn.Module):
     is_recurrent = False
 

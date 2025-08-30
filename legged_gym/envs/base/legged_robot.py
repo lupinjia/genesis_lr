@@ -745,7 +745,6 @@ class LeggedRobot(BaseTask):
                 fixed= self.cfg.asset.fix_base_link,
             ),
             visualize_contact=self.debug,
-            vis_mode="collision"
         )
 
         # build

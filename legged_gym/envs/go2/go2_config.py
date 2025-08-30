@@ -92,6 +92,7 @@ class GO2Cfg( LeggedRobotCfg ):
             torques = -2.e-4
             # gait
             feet_air_time = 1.0
+            foot_clearance = 0.5
     
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
@@ -106,9 +107,19 @@ class GO2Cfg( LeggedRobotCfg ):
             heading = [-3.14, 3.14]
 
 class GO2CfgPPO( LeggedRobotCfgPPO ):
+    class policy (LeggedRobotCfgPPO.policy ):
+        init_noise_std = 1.0
+        actor_hidden_dims = [512, 256, 128]
+        critic_hidden_dims = [512, 256, 128]
+        activation = 'elu' # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
+        # only for 'ActorCriticRecurrent':
+        # rnn_type = 'lstm'
+        # rnn_hidden_size = 512
+        # rnn_num_layers = 1
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
+        policy_class_name = 'ActorCritic'
         run_name = ''
         experiment_name = 'go2'
         save_interval = 100
