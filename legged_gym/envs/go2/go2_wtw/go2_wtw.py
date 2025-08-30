@@ -97,6 +97,8 @@ class GO2WTW(LeggedRobot):
             self.gait_period,                              # gait period 1
             self.base_height_target,                       # base height target 1
             self.foot_clearance_target,                    # foot clearance target 1
+            self.pitch_target,                             # pitch target 1
+            self.theta,                                    # theta, gait offset, 4
         ), dim=-1)
 
         if self.cfg.domain_rand.randomize_ctrl_delay:
@@ -118,6 +120,8 @@ class GO2WTW(LeggedRobot):
                 self.gait_period,                              # gait period 1
                 self.base_height_target,                       # base height target 1
                 self.foot_clearance_target,                    # foot clearance target 1
+                self.pitch_target,                             # pitch target 1
+                self.theta,                                    # theta, gait offset, 4
                 # domain randomization parameters
                 self._rand_push_vels[:, :2],                   # 2
                 self._added_base_mass,                         # 1
@@ -222,7 +226,8 @@ class GO2WTW(LeggedRobot):
         self.extras["episode"]["base_height_target"] = torch.mean(self.base_height_target[:])
         self.extras["episode"]["foot_clearance_target"] = torch.mean(self.foot_clearance_target[:])
         self.extras["episode"]["pitch_target"] = torch.mean(self.pitch_target[:])
-
+        self.extras["episode"]["theta_fr"] = torch.mean(self.theta[:, 1])
+        
         # reset action queue and delay
         if self.cfg.domain_rand.randomize_ctrl_delay:
             self.action_queue[env_ids] *= 0.
@@ -251,6 +256,13 @@ class GO2WTW(LeggedRobot):
                 self.cfg.rewards.behavior_params_range.gait_period_range[1],
                 (len(env_ids), 1), device=self.device
             )
+            # Theta, gait offset
+            selected_idx = torch.randint(0, len(self.cfg.rewards.periodic_reward_framework.theta_fl_list), 
+                                         (1,), device=self.device)
+            self.theta[env_ids, 0] = self.cfg.rewards.periodic_reward_framework.theta_fl_list[selected_idx]
+            self.theta[env_ids, 1] = self.cfg.rewards.periodic_reward_framework.theta_fr_list[selected_idx]
+            self.theta[env_ids, 2] = self.cfg.rewards.periodic_reward_framework.theta_rl_list[selected_idx]
+            self.theta[env_ids, 3] = self.cfg.rewards.periodic_reward_framework.theta_rr_list[selected_idx]
 
         if torch.mean(self.episode_sums["tracking_base_height"][env_ids]) / \
             self.max_episode_length > 0.9 * self.reward_scales["tracking_base_height"]:
@@ -349,10 +361,10 @@ class GO2WTW(LeggedRobot):
             )
         # Periodic Reward Framework
         self.theta = torch.zeros(self.num_envs, 4, dtype=gs.tc_float, device=self.device)
-        self.theta[:, 0] = self.cfg.rewards.periodic_reward_framework.theta_fl
-        self.theta[:, 1] = self.cfg.rewards.periodic_reward_framework.theta_fr
-        self.theta[:, 2] = self.cfg.rewards.periodic_reward_framework.theta_rl
-        self.theta[:, 3] = self.cfg.rewards.periodic_reward_framework.theta_rr
+        self.theta[:, 0] = self.cfg.rewards.periodic_reward_framework.theta_fl_list[0]
+        self.theta[:, 1] = self.cfg.rewards.periodic_reward_framework.theta_fr_list[0]
+        self.theta[:, 2] = self.cfg.rewards.periodic_reward_framework.theta_rl_list[0]
+        self.theta[:, 3] = self.cfg.rewards.periodic_reward_framework.theta_rr_list[0]
         self.gait_time = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)
         self.phi = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)
         self.gait_period = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)

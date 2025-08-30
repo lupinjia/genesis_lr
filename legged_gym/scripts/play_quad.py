@@ -32,9 +32,14 @@ def play(args):
     env_cfg.noise.add_noise = True
     env_cfg.domain_rand.enable = False
     env_cfg.asset.fix_base_link = False
-    env_cfg.rewards.behavior_params_range.gait_period_range = [0.3, 0.3]
+    env_cfg.rewards.behavior_params_range.gait_period_range = [0.5, 0.5]
     env_cfg.rewards.behavior_params_range.base_height_target_range = [0.35, 0.35]
-    env_cfg.rewards.behavior_params_range.foot_clearance_target_range = [0.03, 0.03]
+    env_cfg.rewards.behavior_params_range.foot_clearance_target_range = [0.12, 0.12]
+    env_cfg.rewards.behavior_params_range.pitch_target_range = [0.0, 0.0]
+    env_cfg.rewards.periodic_reward_framework.theta_fl_list = [0.0]
+    env_cfg.rewards.periodic_reward_framework.theta_fr_list = [0.5]
+    env_cfg.rewards.periodic_reward_framework.theta_rl_list = [0.5]
+    env_cfg.rewards.periodic_reward_framework.theta_rr_list = [0.0]
     # initial state randomization
     env_cfg.init_state.yaw_angle_range = [0., 0.]
     # velocity range

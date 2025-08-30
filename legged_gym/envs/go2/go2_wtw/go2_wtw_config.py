@@ -9,10 +9,10 @@ class GO2WTWCfg(LeggedRobotCfg):
         num_actions = 12
         # observation history
         frame_stack = 5   # policy frame stack
-        c_frame_stack = 3  # critic frame stack
-        num_single_obs = 52
+        c_frame_stack = 5  # critic frame stack
+        num_single_obs = 57
         num_observations = int(num_single_obs * frame_stack)
-        single_num_privileged_obs = 73 + 24
+        single_num_privileged_obs = 102
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
 
     class terrain(LeggedRobotCfg.terrain):
@@ -90,8 +90,8 @@ class GO2WTWCfg(LeggedRobotCfg):
             tracking_ang_vel = 0.5
             tracking_base_height = 0.6
             orientation = 0.6
-            foot_clearance = 1.0
-            quad_periodic_gait = 0.5 # 1.0 for smooth, 0.5 for step
+            foot_clearance = 0.6
+            quad_periodic_gait = 1.0
             # smooth
             lin_vel_z = -0.5
             ang_vel_xy = -0.05
@@ -109,19 +109,18 @@ class GO2WTWCfg(LeggedRobotCfg):
             kappa = 20
             # start of swing is all the same
             b_swing = 0.5
-            theta_fl = 0.0  # front left leg
-            theta_fr = 0.5
-            theta_rl = 0.5
-            theta_rr = 0.0
+            theta_fl_list = [0.0, 0.0, 0.5]  # front left leg
+            theta_fr_list = [0.5, 0.0, 0.0]
+            theta_rl_list = [0.5, 0.5, 0.5]
+            theta_rr_list = [0.0, 0.5, 0.0]
         
         class behavior_params_range:
             resampling_time = 6.0
             gait_period_range = [0.3, 0.6]
-            foot_clearance_target_range = [0.03, 0.1]
-            base_height_target_range = [0.2, 0.4]
-            pitch_target_range = [-0.2, 0.2]
+            foot_clearance_target_range = [0.03, 0.12]
+            base_height_target_range = [0.2, 0.36]
+            pitch_target_range = [-0.3, 0.3]
             
-
     class commands(LeggedRobotCfg.commands):
         curriculum = True
         max_curriculum = 1.
@@ -183,6 +182,6 @@ class GO2WTWCfgPPO(LeggedRobotCfgPPO):
         run_name = 'step_gait'
         experiment_name = 'go2_wtw'
         save_interval = 500
-        load_run = "Aug24_18-59-18_step_gait"
+        load_run = "Aug29_23-26-07_step_gait"
         checkpoint = -1
         max_iterations = 4000
