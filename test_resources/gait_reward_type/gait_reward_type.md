@@ -27,5 +27,7 @@ In simulation, difference between **Smooth Gait Function** group and **Step Gait
 
 - For multi-gait learning, I have tested learning of three kinds of gaits on go2: trot, bound, pace. Both methods have successfully learned three kinds of gaits and the transition between them. However, the computation efficiency is lower for **Smooth Gait Function** because of the complex formulation and operations to get the gait indicator.
   
-  
+## Conclusion
+
+Both methods have the capability of learning multiple gaits, and the **Smooth Gait Function** method is worse in case of computation efficiency.
 
