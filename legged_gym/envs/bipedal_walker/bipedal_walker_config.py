@@ -3,7 +3,7 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 class BipedalWalkerCfg( LeggedRobotCfg ):
     
     class env( LeggedRobotCfg.env ):
-        num_envs = 10000
+        num_envs = 4096
         num_observations = 42
         num_actions = 10
         env_spacing = 3.  # not used with heightfields/trimeshes
@@ -43,6 +43,7 @@ class BipedalWalkerCfg( LeggedRobotCfg ):
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
 
     class asset( LeggedRobotCfg.asset ):
+        name = "bipedal_walker" # consistent with folder name
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/bipedal_walker/urdf/walker3d_hip3d.urdf'
         dof_names = [        # specify yhe sequence of actions
             'hip_joint_saggital_right', #-0
