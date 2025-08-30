@@ -16,5 +16,6 @@ setup(
                       'numpy',
                       'tensorboard',
                       'xlsxwriter',
-                      'pandas']
+                      'pandas',
+                      'wandb>=0.21.2']
 )

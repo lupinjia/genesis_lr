@@ -15,7 +15,6 @@ def train(args):
         logging_level='warning')
     # Make environment and algorithm runner
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
-    print(f"Start training for task: {args.task}")
     ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args)
     
     # Copy env.py and env_config.py to log_dir for backup

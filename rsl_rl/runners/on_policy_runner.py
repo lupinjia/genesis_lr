@@ -33,6 +33,8 @@ import os
 from collections import deque
 import statistics
 
+import wandb
+from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 import torch
 
@@ -52,6 +54,14 @@ class OnPolicyRunner:
         self.cfg=train_cfg["runner"]
         self.alg_cfg = train_cfg["algorithm"]
         self.policy_cfg = train_cfg["policy"]
+        self.all_cfg = train_cfg
+        self.wandb_run_name = (
+            datetime.now().strftime("%b%d_%H-%M-%S")
+            + "_"
+            + self.cfg["experiment_name"]
+            + "_"
+            + self.cfg["run_name"]
+        )
         self.device = device
         self.env = env
         if self.env.num_privileged_obs is not None:
@@ -83,6 +93,12 @@ class OnPolicyRunner:
     def learn(self, num_learning_iterations, init_at_random_ep_len=False):
         # initialize writer
         if self.log_dir is not None and self.writer is None:
+            wandb.init(
+                project="genesis_lr",
+                name=self.wandb_run_name,
+                sync_tensorboard=True,
+                config=self.all_cfg,
+            )
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.randint_like(self.env.episode_length_buf, high=int(self.env.max_episode_length))
