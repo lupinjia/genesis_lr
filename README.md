@@ -85,7 +85,7 @@ For deployment code, please refer to [go2_deploy](https://github.com/lupinjia/go
 
 | Robot | Sim | Real |
 |--- | --- | --- |
-| Unitree Go2 | ![](./test_resources/go2_flat_play.gif) | ![](./test_resources/go2_real.gif) |
+| Unitree Go2 (Walk These Ways) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) |
 | Bipedal Walker | ![](./test_resources/bipedal_walker_flat.gif) | |
 
 ## 🙏 Acknowledgements
@@ -98,10 +98,6 @@ For deployment code, please refer to [go2_deploy](https://github.com/lupinjia/go
 
 ## TODO
 
-- [x] Add domain randomization
-- [x] Verify the trained model on real robots.
-- [x] Add Heightfield support
-- [x] Add meausre_heights support
 - [x] Add go2 deploy demos and instructions (2025/07/25)
 - [ ] Add explicit estimator support
 - [x] Add teacher-student implementation (2025/08/02)
