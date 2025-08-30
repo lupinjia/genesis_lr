@@ -249,7 +249,7 @@ class GO2WTW(LeggedRobot):
             return
         # resample gait
         if torch.mean(self.episode_sums["quad_periodic_gait"][env_ids]) / \
-            self.max_episode_length > 0.8 * self.reward_scales["quad_periodic_gait"]:
+            self.max_episode_length > 0.5 * self.reward_scales["quad_periodic_gait"]: # 0.8 for step gait, 0.5 for smooth gait
             # gait period
             self.gait_period[env_ids, :] = gs_rand_float(
                 self.cfg.rewards.behavior_params_range.gait_period_range[0],

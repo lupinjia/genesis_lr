@@ -105,7 +105,7 @@ class GO2WTWCfg(LeggedRobotCfg):
             
         class periodic_reward_framework:
             '''Periodic reward framework in OSU's paper(https://arxiv.org/abs/2011.01387)'''
-            gait_function_type = "step" # can be "step" or "smooth"
+            gait_function_type = "smooth" # can be "step" or "smooth"
             kappa = 20
             # start of swing is all the same
             b_swing = 0.5
@@ -179,9 +179,9 @@ class GO2WTWCfgPPO(LeggedRobotCfgPPO):
         entropy_coef = 0.01
 
     class runner(LeggedRobotCfgPPO.runner):
-        run_name = 'step_gait'
+        run_name = 'smooth_gait'
         experiment_name = 'go2_wtw'
         save_interval = 500
-        load_run = "Aug29_23-26-07_step_gait"
+        load_run = "Aug30_12-04-17_smooth_gait"
         checkpoint = -1
         max_iterations = 4000
