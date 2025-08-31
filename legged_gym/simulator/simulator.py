@@ -5,14 +5,13 @@ if SIMULATOR == "genesis":
     from genesis.utils.geom import transform_by_quat, inv_quat
 elif SIMULATOR == "isaacgym":
     from isaacgym import gymtorch, gymapi, gymutil
-    from isaacgym.torch_utils import *
-    from legged_gym.utils.math_utils import get_euler_xyz as get_euler_xyz_in_tensor
+    # from isaacgym.torch_utils import *
 import torch
 import numpy as np
 import os
 
 from legged_gym.utils.terrain import Terrain
-from legged_gym.utils.math_utils import quat_apply_yaw, torch_rand_float, quat_rotate_inverse
+from legged_gym.utils.math_utils import *
 from legged_gym.utils.gs_utils import *
 
 """ ********** Base Simulator ********** """
@@ -49,24 +48,23 @@ class Simulator:
     def get_heights(self, env_ids=None):
         raise NotImplementedError("Subclasses should implement this method")
 
-    def push_robots(self, common_step_counter):
+    def push_robots(self):
         raise NotImplementedError("Subclasses should implement this method")
     
     def reset_idx(self, env_ids):
         raise NotImplementedError("Subclasses should implement this method")
     
-    def reset_dofs(self, env_ids):
+    def reset_dofs(self, env_ids, dof_pos, dof_vel):
         raise NotImplementedError("Subclasses should implement this method")
 
 """ ********** Genesis Simulator ********** """
 class GenesisSimulator(Simulator):
     """Simulator class for Genesis"""
     def __init__(self, cfg, sim_params: dict, device, headless):
-        super().__init__(cfg, sim_params, device, headless)
         self.sim_params = sim_params
+        super().__init__(cfg, sim_params, device, headless)
     
     def _parse_cfg(self):
-        self.push_interval_s = self.cfg.domain_rand.push_interval_s
         self.debug = self.cfg.env.debug
         self.control_dt = self.cfg.control.dt
 
@@ -143,8 +141,6 @@ class GenesisSimulator(Simulator):
         asset_root = os.path.dirname(asset_path)
         asset_file = os.path.basename(asset_path)
 
-        init_rot_gs = [0, 0, 0, 0]
-        init_rot_gs[0] = self.cfg.init_state.rot[-1] # w,x,y,z for gs
         self.robot = self.scene.add_entity(
             gs.morphs.URDF(
                 file=os.path.join(asset_root, asset_file),
@@ -152,7 +148,7 @@ class GenesisSimulator(Simulator):
                 merge_fixed_links=True,
                 links_to_keep=self.cfg.asset.links_to_keep,
                 pos=np.array(self.cfg.init_state.pos),
-                quat=np.array(init_rot_gs),
+                quat=np.array(self.cfg.init_state.rot_gs),
                 fixed=self.cfg.asset.fix_base_link,
             ),
             visualize_contact=self.debug,
@@ -163,6 +159,7 @@ class GenesisSimulator(Simulator):
 
         self._get_env_origins()
 
+        self.num_dof = len(self.cfg.asset.dof_names)
         self._init_domain_params()
 
         # name to indices
@@ -235,7 +232,7 @@ class GenesisSimulator(Simulator):
             self.cfg.init_state.pos, device=self.device
         )
         self.base_init_quat = torch.tensor(
-            self.cfg.init_state.rot, device=self.device
+            self.cfg.init_state.rot_gs, device=self.device
         )
         self.base_lin_vel = torch.zeros(
             (self.num_envs, 3), device=self.device, dtype=torch.float)
@@ -253,6 +250,8 @@ class GenesisSimulator(Simulator):
             (self.num_envs, 3), device=self.device, dtype=torch.float)
         self.base_quat = torch.zeros(
             (self.num_envs, 4), device=self.device, dtype=torch.float)
+        self.base_quat_gs = torch.zeros(
+            (self.num_envs, 4), device=self.device, dtype=torch.float) # quaternion in isaacgym definition, xyzw
         self.link_contact_forces = torch.zeros(
             (self.num_envs, self.robot.n_links, 3), device=self.device, dtype=torch.float
         )
@@ -302,9 +301,10 @@ class GenesisSimulator(Simulator):
     def post_physics_step(self):
         # prepare quantities
         self.base_pos[:] = self.robot.get_pos()
-        self.base_quat[:,-1] = self.robot.get_quat()[:,0]   # w,x,y,z to xyzw
-        self.base_quat[:,:3] = self.robot.get_quat()[:,1:4] # w,x,y,z to xyzw
-        self.base_lin_vel[:] = quat_rotate_inverse(self.base_quat, self.robot.get_lin())
+        self.base_quat_gs[:] = self.robot.get_quat()
+        self.base_quat[:,-1] = self.robot.get_quat()[:,0]   # wxyz to xyzw
+        self.base_quat[:,:3] = self.robot.get_quat()[:,1:4] # wxyz to xyzw
+        self.base_lin_vel[:] = quat_rotate_inverse(self.base_quat, self.robot.get_vel())
         self.base_ang_vel[:] = quat_rotate_inverse(self.base_quat, self.robot.get_ang())
         self.projected_gravity = quat_rotate_inverse(self.base_quat, self.global_gravity)
         self.dof_pos[:] = self.robot.get_dofs_position(self.motors_dof_idx)
@@ -359,21 +359,17 @@ class GenesisSimulator(Simulator):
 
         return heights.view(self.num_envs, -1) * self.cfg.terrain.vertical_scale
 
-    def push_robots(self, common_step_counter):
+    def push_robots(self):
         """ Random pushes the robots. Emulates an impulse by setting a randomized base velocity. 
         """
-        if self.push_interval_s > 0 and not self.debug:
-            max_push_vel_xy = self.cfg.domain_rand.max_push_vel_xy
-            # in Genesis, base link also has DOF, it's 6DOF if not fixed.
-            dofs_vel = self.robot.get_dofs_velocity()  # (num_envs, num_dof) [0:3] ~ base_link_vel
-            push_vel = torch_rand_float(-max_push_vel_xy,
+        max_push_vel_xy = self.cfg.domain_rand.max_push_vel_xy
+        # in Genesis, base link also has DOF, it's 6DOF if not fixed.
+        dofs_vel = self.robot.get_dofs_velocity()  # (num_envs, num_dof) [0:3] ~ base_link_vel
+        push_vel = torch_rand_float(-max_push_vel_xy,
                                      max_push_vel_xy, (self.num_envs, 2), self.device)
-            self._rand_push_vels[:, :2] = push_vel.detach().clone()
-            push_vel[((common_step_counter + torch.arange(self.num_envs,
-                                                               device=self.device, dtype=torch.int)) %
-                      int(self.push_interval_s / self.control_dt) != 0)] = 0
-            dofs_vel[:, :2] += push_vel
-            self.robot.set_dofs_velocity(dofs_vel)
+        self._rand_push_vels[:, :2] = push_vel.detach().clone()
+        dofs_vel[:, :2] += push_vel
+        self.robot.set_dofs_velocity(dofs_vel)
     
     def reset_idx(self, env_ids):
         if self.cfg.terrain.curriculum:
@@ -388,14 +384,14 @@ class GenesisSimulator(Simulator):
             self._randomize_com_displacement(env_ids)
         if self.cfg.domain_rand.randomize_joint_armature:
             self._randomize_joint_armature(env_ids)
-        if self.cfg.domain_rand.randomize_joint_frictions:
+        if self.cfg.domain_rand.randomize_joint_friction:
             self._randomize_joint_friction(env_ids)
         if self.cfg.domain_rand.randomize_joint_damping:
             self._randomize_joint_damping(env_ids)
         
         self.last_dof_vel[env_ids] = 0.
     
-    def reset_dofs(self, env_ids):
+    def reset_dofs(self, env_ids, dof_pos, dof_vel):
         """ Resets DOF position and velocities of selected environmments
         Positions are randomly selected within 0.5:1.5 x default positions.
         Velocities are set to zero.
@@ -404,8 +400,8 @@ class GenesisSimulator(Simulator):
             env_ids (List[int]): Environemnt ids
         """
 
-        # self.dof_pos[env_ids] = dof_pos[:]
-        # self.dof_vel[env_ids] = dof_vel[:]
+        self.dof_pos[env_ids] = dof_pos[:]
+        self.dof_vel[env_ids] = dof_vel[:]
         
         self.robot.set_dofs_position(
             position=self.dof_pos[env_ids],
@@ -433,7 +429,7 @@ class GenesisSimulator(Simulator):
         # print(f"shape of height_points: ", height_points.shape) # (num_envs, num_points, 3)
         self.scene.draw_debug_spheres(height_points[0, :], radius=0.03, color=(0, 0, 1, 0.7))  # only draw for the first env
 
-    def _reset_root_states(self, envs_idx):
+    def _reset_root_states(self, env_ids):
         """ Resets ROOT states position and velocities of selected environmments
             Sets base position based on the curriculum
             Selects randomized base velocities within -0.5:0.5 [m/s, rad/s]
@@ -442,40 +438,43 @@ class GenesisSimulator(Simulator):
         """
         # base pos: xy [-1, 1]
         if self.custom_origins:
-            self.base_pos[envs_idx] = self.base_init_pos
-            self.base_pos[envs_idx] += self.env_origins[envs_idx]
-            self.base_pos[envs_idx,
-                :2] += torch_rand_float(-1.0, 1.0, (len(envs_idx), 2), self.device)
+            self.base_pos[env_ids] = self.base_init_pos
+            self.base_pos[env_ids] += self.env_origins[env_ids]
+            self.base_pos[env_ids,
+                :2] += torch_rand_float(-1.0, 1.0, (len(env_ids), 2), self.device)
         else:
-            self.base_pos[envs_idx] = self.base_init_pos
-            self.base_pos[envs_idx] += self.env_origins[envs_idx]
+            self.base_pos[env_ids] = self.base_init_pos
+            self.base_pos[env_ids] += self.env_origins[env_ids]
         self.robot.set_pos(
-            self.base_pos[envs_idx], zero_velocity=False, envs_idx=envs_idx)
+            self.base_pos[env_ids], zero_velocity=False, envs_idx=env_ids)
 
         # base quat
-        self.base_quat[envs_idx] = self.base_init_quat.reshape(1, -1)
-        base_euler = torch_rand_float(-0.1, 0.1, (len(envs_idx), 3), self.device)  # roll, pitch [-0.1, 0.1]
-        base_euler[:, 2] = torch_rand_float(*self.cfg.init_state.yaw_angle_range, (len(envs_idx), 1), self.device).squeeze(1)  # yaw angle
-        self.base_quat[envs_idx] = gs_quat_mul(
-            gs_euler2quat(base_euler), self.base_quat[envs_idx],)
+        self.base_quat[env_ids, :] = self.base_init_quat.reshape(1, -1)
+        base_orien_scale = self.cfg.init_state.base_ang_random_scale
+        self.base_quat[env_ids, :] = \
+            quat_from_euler_xyz(
+                torch_rand_float(-base_orien_scale, base_orien_scale, (len(env_ids), 1), self.device).view(-1),
+                torch_rand_float(-base_orien_scale, base_orien_scale, (len(env_ids), 1), self.device).view(-1),
+                torch_rand_float(-base_orien_scale, base_orien_scale, (len(env_ids), 1), self.device).view(-1)
+            )
+        self.base_quat_gs[env_ids, 0] = self.base_quat[env_ids, 3]  # xyzw to wxyz
+        self.base_quat_gs[env_ids, 1:4] = self.base_quat[env_ids, 0:3] # xyzw to wxyz
         self.robot.set_quat(
-            self.base_quat[envs_idx], zero_velocity=False, envs_idx=envs_idx)
-        self.robot.zero_all_dofs_velocity(envs_idx)
+            self.base_quat_gs[env_ids], zero_velocity=False, envs_idx=env_ids)
+        self.robot.zero_all_dofs_velocity(env_ids)
 
         # update projected gravity
-        inv_base_quat = gs_inv_quat(self.base_quat)
-        self.projected_gravity = gs_transform_by_quat(
-            self.global_gravity, inv_base_quat)
+        self.projected_gravity = quat_rotate_inverse(self.base_quat, self.global_gravity)
 
         # reset root states - velocity
-        self.base_lin_vel[envs_idx] = (
-            torch_rand_float(-0.5, 0.5, (len(envs_idx), 3), self.device))
-        self.base_ang_vel[envs_idx] = (
-            torch_rand_float(-0.5, 0.5, (len(envs_idx), 3), self.device))
+        self.base_lin_vel[env_ids] = (
+            torch_rand_float(-0.5, 0.5, (len(env_ids), 3), self.device))
+        self.base_ang_vel[env_ids] = (
+            torch_rand_float(-0.5, 0.5, (len(env_ids), 3), self.device))
         base_vel = torch.concat(
-            [self.base_lin_vel[envs_idx], self.base_ang_vel[envs_idx]], dim=1)
+            [self.base_lin_vel[env_ids], self.base_ang_vel[env_ids]], dim=1)
         self.robot.set_dofs_velocity(velocity=base_vel, dofs_idx_local=[
-                                     0, 1, 2, 3, 4, 5], envs_idx=envs_idx)
+                                     0, 1, 2, 3, 4, 5], envs_idx=env_ids)
     
     def _update_terrain_curriculum(self, env_ids):
         """ Implements the game-inspired curriculum.
@@ -511,12 +510,12 @@ class GenesisSimulator(Simulator):
         y_out_of_bound = (self.base_pos[:, 1] >= self.terrain_y_range[1]) | (
             self.base_pos[:, 1] <= self.terrain_y_range[0])
         out_of_bound_buf = x_out_of_bound | y_out_of_bound
-        envs_idx = out_of_bound_buf.nonzero(as_tuple=False).flatten()
+        env_ids = out_of_bound_buf.nonzero(as_tuple=False).flatten()
         # reset base position to initial position
-        self.base_pos[envs_idx] = self.base_init_pos
-        self.base_pos[envs_idx] += self.env_origins[envs_idx]
+        self.base_pos[env_ids] = self.base_init_pos
+        self.base_pos[env_ids] += self.env_origins[env_ids]
         self.robot.set_pos(
-            self.base_pos[envs_idx], zero_velocity=False, envs_idx=envs_idx)
+            self.base_pos[env_ids], zero_velocity=False, envs_idx=env_ids)
     
     def _create_heightfield(self):
         """ Adds a heightfield terrain to the simulation, sets parameters based on the cfg.
@@ -639,11 +638,11 @@ class GenesisSimulator(Simulator):
         base_link_id = 1
         com_displacement = torch.zeros((len(env_ids), 1, 3), dtype=torch.float, device=self.device)
 
-        com_displacement[:, 0, 0] = gs.rand((len(env_ids), 1), dtype=float) \
+        com_displacement[:, 0, 0] = gs.rand((len(env_ids), 1), dtype=float).squeeze(1) \
             * (max_displacement_x - min_displacement_x) + min_displacement_x
-        com_displacement[:, 0, 1] = gs.rand((len(env_ids), 1), dtype=float) \
+        com_displacement[:, 0, 1] = gs.rand((len(env_ids), 1), dtype=float).squeeze(1) \
             * (max_displacement_y - min_displacement_y) + min_displacement_y
-        com_displacement[:, 0, 2] = gs.rand((len(env_ids), 1), dtype=float) \
+        com_displacement[:, 0, 2] = gs.rand((len(env_ids), 1), dtype=float).squeeze(1) \
             * (max_displacement_z - min_displacement_z) + min_displacement_z
         self._base_com_bias[env_ids] = com_displacement[:,
                                                         0, :].detach().clone()
@@ -706,9 +705,6 @@ class IsaacGymSimulator(Simulator):
         self.gym = gymapi.acquire_gym()
         # Convert dict sim_params to gymapi.SimParams
         self.sim_params = gymapi.SimParams()
-        self.sim_params.physx.use_gpu = True
-        self.sim_params.physx.num_subscenes = 0
-        self.sim_params.use_gpu_pipeline = True
         gymutil.parse_sim_config(sim_params, self.sim_params)
         _, self.sim_device_id = gymutil.parse_device_str(sim_device)
         # graphics device for rendering, -1 for no rendering
@@ -719,7 +715,6 @@ class IsaacGymSimulator(Simulator):
         super().__init__(cfg, sim_params, sim_device, headless)
 
     def _parse_cfg(self):
-        self.push_interval_s = self.cfg.domain_rand.push_interval_s
         self.debug = self.cfg.env.debug
         self.control_dt = self.cfg.control.dt
     
@@ -768,7 +763,7 @@ class IsaacGymSimulator(Simulator):
         asset_options.disable_gravity = self.cfg.asset.disable_gravity
 
         robot_asset = self.gym.load_asset(self.sim, asset_root, asset_file, asset_options)
-        self.num_dof = self.gym.get_asset_dof_count(robot_asset)
+        num_dof = self.gym.get_asset_dof_count(robot_asset)
         self.num_bodies = self.gym.get_asset_rigid_body_count(robot_asset)
         dof_props_asset = self.gym.get_asset_dof_properties(robot_asset)
         rigid_shape_props_asset = self.gym.get_asset_rigid_shape_properties(robot_asset)
@@ -779,7 +774,7 @@ class IsaacGymSimulator(Simulator):
         self.dof_names = self.gym.get_asset_dof_names(robot_asset)
         print(f"dof_names: {self.dof_names}")
         self.num_bodies = len(body_names)
-        self.num_dofs = len(self.dof_names)
+        self.num_dof = len(self.dof_names)
         self.feet_names = [s for s in body_names if self.cfg.asset.foot_name in s]
         penalized_contact_names = []
         for name in self.cfg.asset.penalize_contacts_on:
@@ -788,7 +783,7 @@ class IsaacGymSimulator(Simulator):
         for name in self.cfg.asset.terminate_after_contacts_on:
             termination_contact_names.extend([s for s in body_names if name in s])
 
-        base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
+        base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot_gym + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = to_torch(base_init_state_list, device=self.device, requires_grad=False)
         start_pose = gymapi.Transform()
         start_pose.p = gymapi.Vec3(*self.base_init_state[:3])
@@ -883,7 +878,7 @@ class IsaacGymSimulator(Simulator):
         
         # joint positions offsets and PD gains
         self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
-        for i in range(self.num_dofs):
+        for i in range(self.num_dof):
             name = self.dof_names[i]
             angle = self.cfg.init_state.default_joint_angles[name]
             self.default_dof_pos[i] = angle
@@ -907,8 +902,7 @@ class IsaacGymSimulator(Simulator):
             self.torques = self._compute_torques(actions).view(self.torques.shape)
             self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
             self.gym.simulate(self.sim)
-            if self.device == 'cpu':
-                self.gym.fetch_results(self.sim, True)
+            self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
     
     def post_physics_step(self):
@@ -968,7 +962,7 @@ class IsaacGymSimulator(Simulator):
 
         return heights.view(self.num_envs, -1) * self.cfg.terrain.vertical_scale
     
-    def push_robots(self, common_step_counter):
+    def push_robots(self):
         max_vel = self.cfg.domain_rand.max_push_vel_xy
         self._rand_push_vels[:, :2] = torch_rand_float(-max_vel, max_vel, (self.num_envs, 2), device=self.device)
         self.root_states[:, 7:9] = self._rand_push_vels[:, :2] # set random base velocity in xy plane
@@ -978,22 +972,23 @@ class IsaacGymSimulator(Simulator):
         if self.cfg.terrain.curriculum:
             self._update_terrain_curriculum(env_ids)
         self._reset_root_states(env_ids)
+        
         if self.cfg.domain_rand.randomize_pd_gain:
             self._kp_scale[env_ids] = torch_rand_float(
                 self.cfg.domain_rand.kp_range[0], self.cfg.domain_rand.kp_range[1], (len(env_ids), self.num_actions), device=self.device)
             self._kd_scale[env_ids] = torch_rand_float(
                 self.cfg.domain_rand.kd_range[0], self.cfg.domain_rand.kd_range[1], (len(env_ids), self.num_actions), device=self.device)
         self.last_dof_vel[env_ids] = 0.
+        
         # fix reset gravity bug
         self.base_quat[env_ids] = self.root_states[env_ids, 3:7]
         self.projected_gravity[env_ids] = quat_rotate_inverse(
             self.base_quat[env_ids], self.global_gravity[env_ids])
     
-    def reset_dofs(self, env_ids):
-        self.dof_pos[env_ids, :] = self.default_dof_pos[:] + torch_rand_float(
-            -0.2, 0.2, (len(env_ids), self.num_dof), device=self.device)
-        self.dof_vel[env_ids, :] = 0.
-            
+    def reset_dofs(self, env_ids, dof_pos, dof_vel):
+        self.dof_pos[env_ids, :] = dof_pos[:]
+        self.dof_vel[env_ids, :] = dof_vel[:]
+
         env_ids_int32 = env_ids.to(dtype=torch.int32)
         self.gym.set_dof_state_tensor_indexed(self.sim,
                                               gymtorch.unwrap_tensor(

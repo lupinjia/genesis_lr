@@ -52,10 +52,12 @@ class LeggedRobotCfg(BaseConfig):
 
     class init_state:
         pos = [0.0, 0.0, 1.] # x,y,z [m]
-        rot = [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
+        rot_gs = [1.0, 0.0, 0.0, 0.0] # w,x,y,z [quat]
+        rot_gym = [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
         lin_vel = [0.0, 0.0, 0.0]  # x,y,z [m/s]
         ang_vel = [0.0, 0.0, 0.0]  # x,y,z [rad/s]
         # initial state randomization
+        base_ang_random_scale = 0.1
         yaw_angle_range = [0.0, 0.0] # min max [rad]
         default_joint_angles = { # target angles when action = 0.0
             "joint_a": 0., 
@@ -188,8 +190,11 @@ class LeggedRobotCfg(BaseConfig):
         substeps = 1
         gravity = [0., 0. ,-9.81]  # [m/s^2]
         up_axis = 1  # 0 is y, 1 is z
+        use_gpu_pipeline = True
 
         class physx:
+            use_gpu = True
+            num_subscenes = 0
             num_threads = 10
             solver_type = 1  # 0: pgs, 1: tgs
             num_position_iterations = 4

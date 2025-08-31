@@ -1,6 +1,6 @@
 # 🦿 Legged Robotics in Genesis
 
-A [legged_gym](https://github.com/leggedrobotics/legged_gym) based framework for training legged robots in [genesis](https://github.com/Genesis-Embodied-AI/Genesis/tree/main)
+A [legged_gym](https://github.com/leggedrobotics/legged_gym) based framework for training legged robots in [Genesis](https://github.com/Genesis-Embodied-AI/Genesis/tree/main) and [IsaacGym](https://developer.nvidia.com/isaac-gym)
 
 ## Table of Contents
 
@@ -23,13 +23,11 @@ A [legged_gym](https://github.com/leggedrobotics/legged_gym) based framework for
 
 - **Totally based on [legged_gym](https://github.com/leggedrobotics/legged_gym)**
 
-- **Faster and Smaller**
+- **Integration of 2 simulators: Genesis and IsaacGym**
   
-  For a go2 walking on the plane task with 4096 envs, the training speed in Genesis is approximately **1.3x** compared to [Isaac Gym](https://developer.nvidia.com/isaac-gym), while the graphics memory usage is roughly **1/2** compared to IsaacGym.
+  You can train policies in two simulators using one framework and two conda environments.
 
-  With this smaller memory usage, it's possible to **run more parallel environments**, which can further improve the training speed.
-
-- Incorporation of various methods in published RL papers
+- **Incorporation of various methods in published RL papers**
   
   | Method | Paper Link | Location | Materials |
   |--------|------------|----------|-----------|

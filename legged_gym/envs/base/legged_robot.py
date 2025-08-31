@@ -112,8 +112,6 @@ class LeggedRobot(BaseTask):
             self.update_command_curriculum(env_ids)
 
         self._resample_commands(env_ids)
-        
-        self._reset_dofs(env_ids)
         self.simulator.reset_idx(env_ids)
 
         # reset buffers
@@ -253,8 +251,8 @@ class LeggedRobot(BaseTask):
 
         if self.cfg.terrain.measure_heights:
             self.measured_heights = self.simulator.get_heights()
-        if self.cfg.domain_rand.push_robots:
-            self.simulator.push_robots(self.common_step_counter)
+        if self.cfg.domain_rand.push_robots and (self.common_step_counter % self.cfg.domain_rand.push_interval == 0):
+            self.simulator.push_robots()
 
     def _resample_commands(self, env_ids):
         """ Randommly select commands of some environments
@@ -263,12 +261,14 @@ class LeggedRobot(BaseTask):
             env_ids (List[int]): Environments ids for which new commands are needed
         """
         self.commands[env_ids, 0] = torch_rand_float(
-            *self.cfg.commands.ranges.lin_vel_x, (len(env_ids),1), self.device).squeeze(1)
+            self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids),1), self.device).squeeze(1)
         self.commands[env_ids, 1] = torch_rand_float(
-            *self.cfg.commands.ranges.lin_vel_y, (len(env_ids),1), self.device).squeeze(1)
-        self.commands[env_ids, 2] = torch_rand_float(
-            *self.cfg.commands.ranges.ang_vel_yaw, (len(env_ids),1), self.device).squeeze(1)
-
+            self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids),1), self.device).squeeze(1)
+        if self.cfg.commands.heading_command:
+            self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+        else:
+            self.commands[env_ids, 2] = torch_rand_float(self.command_ranges["ang_vel_yaw"][0], self.command_ranges["ang_vel_yaw"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+        
         # set small commands to zero
         self.commands[env_ids, :2] *= (torch.norm(
             self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
@@ -386,6 +386,8 @@ class LeggedRobot(BaseTask):
             self.cfg.terrain.curriculum = False
         self.max_episode_length_s = self.cfg.env.episode_length_s
         self.max_episode_length = np.ceil(self.max_episode_length_s / self.dt)
+        
+        self.cfg.domain_rand.push_interval = np.ceil(self.cfg.domain_rand.push_interval_s / self.dt)
 
     def _init_height_points(self):
         """ Returns points at which the height measurments are sampled (in base frame)
