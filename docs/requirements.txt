@@ -14,24 +14,5 @@ sphinxcontrib-video
 sphinx-togglebutton
 sphinx_design
 psutil
-scikit-image
 pydantic == 2.7.1
-numpy == 1.26.4
 six
-PyOpenGL
-freetype-py
-pyglet
-libigl
-pygltflib
-pycollada
-opencv-python
-tetgen
-screeninfo
-PyGEL3D
-moviepy
-numba
-pymeshlab
-pymeshfix
-torch
-PyOpenGL
-PyOpenGL_accelerate
