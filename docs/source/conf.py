@@ -12,7 +12,7 @@
 #
 import os
 import sys
-_local_repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+_local_repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
 sys.path.insert(0, _local_repo_root)
 
 
