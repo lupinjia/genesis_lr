@@ -66,6 +66,12 @@ html_context = {
     "conf_py_path": "/",
     "doc_path": "/",
 }
+html_theme_options = {
+    "show_nav_level": 2,
+    "use_edit_page_button": True,
+    "navbar_center": ["version-switcher", "navbar-nav"],
+    "show_version_warning_banner": False,
+}
 html_static_path = ["_static"]
 
 ### Autodoc configurations ###
