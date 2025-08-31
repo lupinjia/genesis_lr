@@ -23,7 +23,6 @@ author = "lupinjia"
 
 
 # -- General configuration ---------------------------------------------------
-# -- General configuration
 
 extensions = [
     "sphinx.ext.duration",
@@ -62,14 +61,13 @@ html_context = {
     "display_github": True,
     "github_user": "lupinjia",
     "github_repo": "genesis_lr",
-    "github_version": "main",
-    "conf_py_path": "/",
-    "doc_path": "/",
+    "github_version": "dev",
+    "conf_py_path": "./",
 }
 html_theme_options = {
     "show_nav_level": 2,
     "use_edit_page_button": True,
-    "navbar_center": ["version-switcher", "navbar-nav"],
+    "navbar_center": ["navbar-nav"],
     "show_version_warning_banner": False,
 }
 html_static_path = ["_static"]
