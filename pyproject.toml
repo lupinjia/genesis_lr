@@ -1,0 +1,28 @@
+[project]
+name = "genesis_lr"
+version = "0.2.0"
+requires-python = ">=3.8"
+dependencies = [
+                'matplotlib',
+                'torchvision',
+                'numpy',
+                'tensorboard',
+                'xlsxwriter',
+                'pandas',
+                'wandb'
+]
+
+[project.optional-dependencies]
+isaacgym = [
+    "torch<=2.5.1",
+    "numpy<2",
+    "fsspec<=2025.3.0",  # fsspec==2025.3.1 has bug with python 3.8
+]
+genesis = [
+    "torch>=2.7.0",
+    "genesis-world",
+    "libigl==2.5.1",  # for genesis 0.2.1, see https://github.com/Genesis-Embodied-AI/Genesis/issues/1156#issuecomment-3069006079
+]
+
+[tool.setuptools]
+packages = ['rsl_rl', 'resources', 'legged_gym', 'test_resources']

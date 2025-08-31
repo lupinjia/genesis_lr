@@ -8,8 +8,7 @@ class LeggedRobotCfg(BaseConfig):
         num_actions = 12
         send_timeouts = True # send time out information to the algorithm
         episode_length_s = 20 # episode length in seconds
-        debug = False # if debugging, visualize contacts, 
-        debug_viz = False # draw debug visualizations
+        debug = False # if debugging, visualize contacts, etc.
         env_spacing = 1.0
 
     class terrain:
@@ -19,7 +18,8 @@ class LeggedRobotCfg(BaseConfig):
         vertical_scale = 0.005 # [m]
         border_size = 5 # [m]
         curriculum = False
-        friction = 1.0
+        static_friction = 1.0
+        dynamic_friction = 1.0
         restitution = 0.
         # rough terrain only:
         measure_heights = False
@@ -52,7 +52,7 @@ class LeggedRobotCfg(BaseConfig):
 
     class init_state:
         pos = [0.0, 0.0, 1.] # x,y,z [m]
-        rot = [1.0, 0.0, 0.0, 0.0] # w, x, y, z [quat]
+        rot = [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
         lin_vel = [0.0, 0.0, 0.0]  # x,y,z [m/s]
         ang_vel = [0.0, 0.0, 0.0]  # x,y,z [rad/s]
         # initial state randomization
@@ -73,16 +73,32 @@ class LeggedRobotCfg(BaseConfig):
         decimation = 4
         
     class asset:
+        # Common
         name = None
-        dof_names = ["joint_a", "joint_b"]
         file = ""
-        links_to_keep = []     # links that are not merged because of fixed joints
         foot_name = "None"     # name of the feet bodies, used to index body state and contact force tensors
         penalize_contacts_on = []
         terminate_after_contacts_on = []
-        links_to_keep = []
-        self_collisions = True   # enable self collisions by default
         fix_base_link = False    # fix base link to the world
+        # Genesis
+        links_to_keep = []     # links that are not merged because of fixed joints
+        dof_names = ["joint_a", "joint_b"]
+        links_to_keep = []
+        self_collisions_gs = True   # enable self collisions by default
+        # IsaacGym
+        disable_gravity = False
+        collapse_fixed_joints = True # merge bodies connected by fixed joints. Specific fixed joints can be kept by adding " <... dont_collapse="true">
+        default_dof_drive_mode = 3 # see GymDofDriveModeFlags (0 is none, 1 is pos tgt, 2 is vel tgt, 3 effort)
+        self_collisions_gym = 0 # 1 to disable, 0 to enable...bitwise filter
+        replace_cylinder_with_capsule = True # replace collision cylinders with capsules, leads to faster/more stable simulation
+        flip_visual_attachments = True # Some .obj meshes must be flipped from y-up to z-up
+        density = 0.001
+        angular_damping = 0.
+        linear_damping = 0.
+        max_angular_velocity = 1000.
+        max_linear_velocity = 1000.
+        armature = 0.
+        thickness = 0.01
         
     class domain_rand:
         randomize_friction = True
@@ -93,15 +109,20 @@ class LeggedRobotCfg(BaseConfig):
         push_interval_s = 15
         max_push_vel_xy = 1.
         randomize_com_displacement = True
-        com_displacement_range = [-0.01, 0.01]
+        com_pos_x_range = [-0.01, 0.01]
+        com_pos_y_range = [-0.01, 0.01]
+        com_pos_z_range = [-0.01, 0.01]
         randomize_ctrl_delay = False
         ctrl_delay_step_range = [0, 1]
         randomize_joint_armature = False
         joint_armature_range = [0.0, 0.05]  # [N*m*s/rad]
-        randomize_joint_stiffness = False
-        joint_stiffness_range = [0.0, 0.1]
+        randomize_joint_friction = False
+        joint_friction_range = [0.0, 0.1]
         randomize_joint_damping = False
         joint_damping_range = [0.0, 1.0]
+        randomize_pd_gain = False
+        kp_range = [0.8, 1.2]
+        kd_range = [0.8, 1.2]
 
     class rewards:
         class scales:
@@ -163,9 +184,24 @@ class LeggedRobotCfg(BaseConfig):
         add_camera = False
 
     class sim:
+        dt =  0.005
+        substeps = 1
         gravity = [0., 0. ,-9.81]  # [m/s^2]
+        up_axis = 1  # 0 is y, 1 is z
 
-
+        class physx:
+            num_threads = 10
+            solver_type = 1  # 0: pgs, 1: tgs
+            num_position_iterations = 4
+            num_velocity_iterations = 0
+            contact_offset = 0.01  # [m]
+            rest_offset = 0.0   # [m]
+            bounce_threshold_velocity = 0.5 #0.5 [m/s]
+            max_depenetration_velocity = 1.0
+            max_gpu_contact_pairs = 2**23 #2**24 -> needed for 8000 envs and more
+            default_buffer_size_multiplier = 5
+            contact_collection = 2 # 0: never, 1: last sub-step, 2: all sub-steps (default=2)
+    
 class LeggedRobotCfgPPO(BaseConfig):
     seed = 1
     runner_class_name = 'OnPolicyRunner'

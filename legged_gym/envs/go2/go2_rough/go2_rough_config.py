@@ -16,7 +16,6 @@ class GO2RoughCfg( LeggedRobotCfg ):
         vertical_scale = 0.005 # [m]
         border_size = 5 # [m]. implemented a out_of_bound detection, so border_size can be smaller
         curriculum = True
-        friction = 1.0
         restitution = 0.
         # rough terrain only:
         measure_heights = True

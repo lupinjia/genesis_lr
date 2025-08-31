@@ -47,7 +47,7 @@ class BipedalWalker(LeggedRobot):
         Args:
             env_ids (List[int]): Environemnt ids
         """
-        dof_pos = torch.zeros((len(envs_idx), self.num_actions), dtype=gs.tc_float, device=self.device)
+        dof_pos = torch.zeros((len(envs_idx), self.num_actions), dtype=torch.float, device=self.device)
         dof_pos[:, [0,5]] = self.default_dof_pos[[0,5]] + gs_rand_float(-0.2, 0.2, (len(envs_idx), 2), device=self.device) # saggital
         dof_pos[:, [1,6]] = self.default_dof_pos[[1,6]] + gs_rand_float(-0.2, 0.2, (len(envs_idx), 2), device=self.device) # frontal
         dof_pos[:, [2,7]] = self.default_dof_pos[[2,7]] + gs_rand_float(-0.05, 0.05, (len(envs_idx), 2), device=self.device) # transversal

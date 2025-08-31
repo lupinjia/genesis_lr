@@ -129,7 +129,7 @@ class Go2TS(LeggedRobot):
         # obs_history
         self.last_obs_buf = torch.zeros(
             (self.num_envs, self.cfg.env.num_observations),
-            dtype=gs.tc_float,
+            dtype=torch.float,
             device=self.device,
         )
         self.obs_history_deque = deque(maxlen=self.cfg.env.frame_stack)
@@ -138,7 +138,7 @@ class Go2TS(LeggedRobot):
                 torch.zeros(
                     self.num_envs,
                     self.cfg.env.num_observations,
-                    dtype=gs.tc_float,
+                    dtype=torch.float,
                     device=self.device,
                 )
             )
@@ -176,9 +176,9 @@ class Go2TS(LeggedRobot):
     def _init_domain_params(self):
         super()._init_domain_params()
         self._kp_scale = torch.ones(
-            self.num_envs, self.num_actions, dtype=gs.tc_float, device=self.device)
+            self.num_envs, self.num_actions, dtype=torch.float, device=self.device)
         self._kd_scale = torch.ones(
-            self.num_envs, self.num_actions, dtype=gs.tc_float, device=self.device)
+            self.num_envs, self.num_actions, dtype=torch.float, device=self.device)
 
     def _episodic_domain_randomization(self, env_ids):
         """ Update scale of Kp, Kd, rfi lim"""

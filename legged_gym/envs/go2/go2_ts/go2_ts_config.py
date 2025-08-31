@@ -13,7 +13,6 @@ class Go2TSCfg( LeggedRobotCfg ):
     
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = "plane" # none, plane, heightfield
-        friction = 1.0
         restitution = 0.
         
     class init_state( LeggedRobotCfg.init_state ):

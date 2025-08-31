@@ -7,11 +7,10 @@ class GO2Cfg( LeggedRobotCfg ):
         num_observations = 48
         num_privileged_obs = None
         num_actions = 12
-        env_spacing = 0.5
+        env_spacing = 3.0
     
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = "plane" # none, plane, heightfield
-        friction = 1.0
         restitution = 0.
         
     class init_state( LeggedRobotCfg.init_state ):
@@ -47,6 +46,10 @@ class GO2Cfg( LeggedRobotCfg ):
     class asset( LeggedRobotCfg.asset ):
         name = "go2"
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
+        foot_name = "foot"
+        penalize_contacts_on = ["thigh", "calf"]
+        terminate_after_contacts_on = ["base"]
+        
         dof_names = [        # specify the sequence of actions
             'FR_hip_joint',
             'FR_thigh_joint',
@@ -60,11 +63,10 @@ class GO2Cfg( LeggedRobotCfg ):
             'RL_hip_joint',
             'RL_thigh_joint',
             'RL_calf_joint',]
-        foot_name = ["foot"]
-        penalize_contacts_on = ["thigh", "calf"]
-        terminate_after_contacts_on = ["base"]
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
-        self_collisions = True
+        self_collisions_gs = True
+        
+        flip_visual_attachments = False # Some .obj meshes must be flipped from y-up to z-up
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
@@ -105,6 +107,19 @@ class GO2Cfg( LeggedRobotCfg ):
             lin_vel_y = [-1.0, 1.0]   # min max [m/s]
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
             heading = [-3.14, 3.14]
+
+    class domain_rand( LeggedRobotCfg.domain_rand ):
+        randomize_friction = True
+        friction_range = [0.5, 1.25]
+        randomize_base_mass = True
+        added_mass_range = [-1., 1.]
+        push_robots = False
+        push_interval_s = 15
+        max_push_vel_xy = 1.
+        randomize_com_displacement = True
+        com_pos_x_range = [-0.01, 0.01]
+        com_pos_y_range = [-0.01, 0.01]
+        com_pos_z_range = [-0.01, 0.01]
 
 class GO2CfgPPO( LeggedRobotCfgPPO ):
     class policy (LeggedRobotCfgPPO.policy ):

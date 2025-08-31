@@ -10,7 +10,6 @@ class BipedalWalkerCfg( LeggedRobotCfg ):
     
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = 'plane' # "heightfield" # none, plane, heightfield or trimesh
-        friction = 1.0
         restitution = 0.
         
     class init_state( LeggedRobotCfg.init_state ):

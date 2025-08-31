@@ -314,7 +314,7 @@ class GO2WTW(LeggedRobot):
             [torch.Tensor]: Vector of scales used to multiply a uniform distribution in [-1, 1]
         """
         noise_vec = torch.zeros(
-            self.cfg.env.num_single_obs, dtype=gs.tc_float, device=self.device)
+            self.cfg.env.num_single_obs, dtype=torch.float, device=self.device)
         self.add_noise = self.cfg.noise.add_noise
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level
@@ -346,7 +346,7 @@ class GO2WTW(LeggedRobot):
                 torch.zeros(
                     self.num_envs,
                     self.cfg.env.num_single_obs,
-                    dtype=gs.tc_float,
+                    dtype=torch.float,
                     device=self.device,
                 )
             )
@@ -355,24 +355,24 @@ class GO2WTW(LeggedRobot):
                 torch.zeros(
                     self.num_envs,
                     self.cfg.env.single_num_privileged_obs,
-                    dtype=gs.tc_float,
+                    dtype=torch.float,
                     device=self.device,
                 )
             )
         # Periodic Reward Framework
-        self.theta = torch.zeros(self.num_envs, 4, dtype=gs.tc_float, device=self.device)
+        self.theta = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device)
         self.theta[:, 0] = self.cfg.rewards.periodic_reward_framework.theta_fl_list[0]
         self.theta[:, 1] = self.cfg.rewards.periodic_reward_framework.theta_fr_list[0]
         self.theta[:, 2] = self.cfg.rewards.periodic_reward_framework.theta_rl_list[0]
         self.theta[:, 3] = self.cfg.rewards.periodic_reward_framework.theta_rr_list[0]
-        self.gait_time = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)
-        self.phi = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)
-        self.gait_period = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)
+        self.gait_time = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
+        self.phi = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
+        self.gait_period = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
         self.gait_period[:] = self.cfg.rewards.behavior_params_range.gait_period_range[1]
         self.clock_input = torch.zeros(
             self.num_envs,
             4,
-            dtype=gs.tc_float,
+            dtype=torch.float,
             device=self.device,
         )
         self.b_swing = torch.zeros(
@@ -380,15 +380,15 @@ class GO2WTW(LeggedRobot):
         self.b_swing[:] = self.cfg.rewards.periodic_reward_framework.b_swing * 2 * torch.pi
         # Tracking params
         self.base_height_target = torch.zeros(
-            self.num_envs, 1, dtype=gs.tc_float, device=self.device
+            self.num_envs, 1, dtype=torch.float, device=self.device
         )
         self.base_height_target[:, :] = self.cfg.rewards.behavior_params_range.base_height_target_range[1]
         self.foot_clearance_target = torch.zeros(
-            self.num_envs, 1, dtype=gs.tc_float, device=self.device
+            self.num_envs, 1, dtype=torch.float, device=self.device
         )
         self.foot_clearance_target[:, :] = self.cfg.rewards.behavior_params_range.foot_clearance_target_range[0]
         self.pitch_target = torch.zeros(
-            self.num_envs, 1, dtype=gs.tc_float, device=self.device
+            self.num_envs, 1, dtype=torch.float, device=self.device
         )
         self.pitch_target[:, :] = self.cfg.rewards.behavior_params_range.pitch_target_range[1]
 
@@ -407,8 +407,8 @@ class GO2WTW(LeggedRobot):
     
     def _init_domain_params(self):
         super()._init_domain_params()
-        self._kp_scale = torch.ones(self.num_envs, self.num_actions, dtype=gs.tc_float, device=self.device)
-        self._kd_scale = torch.ones(self.num_envs, self.num_actions, dtype=gs.tc_float, device=self.device)
+        self._kp_scale = torch.ones(self.num_envs, self.num_actions, dtype=torch.float, device=self.device)
+        self._kd_scale = torch.ones(self.num_envs, self.num_actions, dtype=torch.float, device=self.device)
     
     def _episodic_domain_randomization(self, env_ids):
         """ Update scale of Kp, Kd, rfi lim"""
@@ -504,8 +504,8 @@ class GO2WTW(LeggedRobot):
             exp_C_spd[is_standing] = -1
         elif self.gait_function_type == "step":
             ''' ***** Step Gait Indicator ***** '''
-            exp_C_frc = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)
-            exp_C_spd = torch.zeros(self.num_envs, 1, dtype=gs.tc_float, device=self.device)
+            exp_C_frc = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
+            exp_C_spd = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
             
             swing_indices = (phi >= self.a_swing) & (phi < self.b_swing)
             swing_indices = swing_indices.nonzero(as_tuple=False).flatten()
