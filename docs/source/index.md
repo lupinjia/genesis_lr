@@ -11,3 +11,9 @@ genesis_lr is a training framework for robot control based on RL (Reinforcement 
 - **Integration of IsaacGym and Genesis** in one framework. You only need to create two conda environments to use different simulator.
 - **Incoporation of various published papers of RL**. We implemented various methods published in papers and provided material to compare and differentiate them.
 
+```{toctree}
+:maxdepth: 1
+
+user_guide/index
+
+```
