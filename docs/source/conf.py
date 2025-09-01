@@ -9,11 +9,6 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-import os
-import sys
-_local_repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-sys.path.insert(0, _local_repo_root)
 
 
 # -- Project information -----------------------------------------------------
@@ -28,7 +23,6 @@ author = "lupinjia"
 extensions = [
     "sphinx.ext.duration",
     "sphinx.ext.doctest",
-    "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
@@ -69,14 +63,9 @@ html_context = {
 html_theme_options = {
     "show_nav_level": 2,
     "use_edit_page_button": True,
-    "navbar_center": ["navbar-nav"],
+    "navbar_center": ["version_switcher", "navbar-nav"],
     "show_version_warning_banner": False,
 }
 html_static_path = ["_static"]
 
-### Autodoc configurations ###
-autodoc_typehints = "signature"
-autodoc_typehints_description_target = "all"
-autodoc_default_flags = ["members", "show-inheritance", "undoc-members"]
-autodoc_member_order = "bysource"
 autosummary_generate = True
