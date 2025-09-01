@@ -41,8 +41,6 @@ myst_enable_extensions = ["colon_fence", "dollarmath", "amsmath", "dollarmath"]
 # https://github.com/executablebooks/MyST-Parser/issues/519#issuecomment-1037239655
 myst_heading_anchors = 4
 
-templates_path = ["_templates"]
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -63,9 +61,9 @@ html_context = {
 html_theme_options = {
     "show_nav_level": 2,
     "use_edit_page_button": True,
-    "navbar_center": ["version_switcher", "navbar-nav"],
+    "navbar_center": ["navbar-nav"],
     "show_version_warning_banner": False,
 }
-html_static_path = ["_static"]
+# html_static_path = ["_static"]
 
 autosummary_generate = True
