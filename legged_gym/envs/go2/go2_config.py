@@ -7,11 +7,10 @@ class GO2Cfg( LeggedRobotCfg ):
         num_observations = 48
         num_privileged_obs = None
         num_actions = 12
-        env_spacing = 3.0
+        env_spacing = 2.0
     
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = "plane" # none, plane, heightfield
-        restitution = 0.
         
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]
@@ -38,16 +37,16 @@ class GO2Cfg( LeggedRobotCfg ):
         stiffness = {'joint': 20.}   # [N*m/rad]
         damping = {'joint': 0.5}     # [N*m*s/rad]
         action_scale = 0.25 # action scale: target angle = actionScale * action + defaultAngle
-        dt =  0.02  # control frequency 50Hz
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
 
     class asset( LeggedRobotCfg.asset ):
+        # Common
         name = "go2"
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
         foot_name = "foot"
         penalize_contacts_on = ["thigh", "calf"]
         terminate_after_contacts_on = ["base"]
-        
+        # For Genesis
         dof_names = [        # specify the sequence of actions
             'FR_hip_joint',
             'FR_thigh_joint',
@@ -63,7 +62,7 @@ class GO2Cfg( LeggedRobotCfg ):
             'RL_calf_joint',]
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
         self_collisions_gs = True
-        
+        # 
         flip_visual_attachments = False # Some .obj meshes must be flipped from y-up to z-up
   
     class rewards( LeggedRobotCfg.rewards ):

@@ -52,8 +52,8 @@ class LeggedRobotCfg(BaseConfig):
 
     class init_state:
         pos = [0.0, 0.0, 1.] # x,y,z [m]
-        rot_gs = [1.0, 0.0, 0.0, 0.0] # w,x,y,z [quat]
-        rot_gym = [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
+        rot_gs = [1.0, 0.0, 0.0, 0.0]  # w,x,y,z [quat]
+        rot_gym = [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat], quaternion sequence definitions are different in gym and genesis
         lin_vel = [0.0, 0.0, 0.0]  # x,y,z [m/s]
         ang_vel = [0.0, 0.0, 0.0]  # x,y,z [rad/s]
         # initial state randomization
@@ -81,16 +81,15 @@ class LeggedRobotCfg(BaseConfig):
         penalize_contacts_on = []
         terminate_after_contacts_on = []
         fix_base_link = False    # fix base link to the world
-        # Genesis
-        links_to_keep = []     # links that are not merged because of fixed joints
+        # For Genesis
+        links_to_keep = []          # links that are not merged because of fixed joints
         dof_names = ["joint_a", "joint_b"]
-        links_to_keep = []
         self_collisions_gs = True   # enable self collisions by default
-        # IsaacGym
+        # For IsaacGym
         disable_gravity = False
         collapse_fixed_joints = True # merge bodies connected by fixed joints. Specific fixed joints can be kept by adding " <... dont_collapse="true">
-        default_dof_drive_mode = 3 # see GymDofDriveModeFlags (0 is none, 1 is pos tgt, 2 is vel tgt, 3 effort)
-        self_collisions_gym = 0 # 1 to disable, 0 to enable...bitwise filter
+        default_dof_drive_mode = 3   # see GymDofDriveModeFlags (0 is none, 1 is pos tgt, 2 is vel tgt, 3 effort)
+        self_collisions_gym = 0      # 1 to disable, 0 to enable...bitwise filter
         replace_cylinder_with_capsule = True # replace collision cylinders with capsules, leads to faster/more stable simulation
         flip_visual_attachments = True # Some .obj meshes must be flipped from y-up to z-up
         density = 0.001
@@ -149,8 +148,8 @@ class LeggedRobotCfg(BaseConfig):
         soft_dof_vel_limit = 1.
         soft_torque_limit = 1.
         base_height_target = 1.
-        foot_clearance_target = 0.08 # desired foot clearance above ground [m]
-        foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
+        foot_clearance_target = 0.04 # desired foot clearance above ground [m]
+        foot_height_offset = 0.0     # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
         # termination conditions
         max_projected_gravity = -0.1

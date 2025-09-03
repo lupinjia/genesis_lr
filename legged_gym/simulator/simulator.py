@@ -66,7 +66,7 @@ class GenesisSimulator(Simulator):
     
     def _parse_cfg(self):
         self.debug = self.cfg.env.debug
-        self.control_dt = self.cfg.control.dt
+        self.control_dt = self.cfg.sim.dt * self.cfg.control.decimation
 
     def _create_sim(self):
         # create scene
@@ -717,7 +717,7 @@ class IsaacGymSimulator(Simulator):
 
     def _parse_cfg(self):
         self.debug = self.cfg.env.debug
-        self.control_dt = self.cfg.control.dt
+        self.control_dt = self.cfg.sim.dt * self.cfg.control.decimation
     
     def _create_sim(self):
         self.up_axis_idx = 2 # 2 for z, 1 for y -> adapt gravity accordingly

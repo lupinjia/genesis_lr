@@ -377,7 +377,7 @@ class LeggedRobot(BaseTask):
                              for name in self.reward_scales.keys()}
 
     def _parse_cfg(self, cfg):
-        self.dt = self.cfg.control.dt
+        self.dt = self.cfg.sim.dt * self.cfg.control.decimation
         # use self-implemented pd controller
         self.obs_scales = self.cfg.normalization.obs_scales
         self.reward_scales = class_to_dict(self.cfg.rewards.scales)

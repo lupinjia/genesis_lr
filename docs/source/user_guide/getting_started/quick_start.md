@@ -1,4 +1,4 @@
-# Quick Start
+# 🚀Quick Start
 
 By default, we switch between IsaacGym and Genesis Simulator through identifying python version:
 
@@ -43,3 +43,5 @@ python play_quad.py --task=go2
 :::{note}
 If you use IsaacGym simulator, the pipeline is the same other than that the simulator window is different.
 :::
+
+> If you play the policy trained in genesis to IsaacGym, how will it perform?

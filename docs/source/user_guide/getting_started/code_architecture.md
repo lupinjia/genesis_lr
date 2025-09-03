@@ -1,4 +1,4 @@
-# Code Architecture
+# 🧬Code Architecture
 
 ## Overall Architecture of genesis_lr
 
