@@ -4,23 +4,38 @@ version = "0.2.0"
 requires-python = ">=3.8"
 dependencies = [
                 'matplotlib',
-                'torchvision',
-                'numpy',
                 'tensorboard',
                 'xlsxwriter',
                 'pandas',
-                'wandb'
+                'wandb',
+                'tqdm',
+                'scipy',
+                'torch',
+                'torchvision',
+                'numpy'
 ]
 
 [project.optional-dependencies]
 isaacgym = [
-    "torch<=2.5.1",
-    "numpy<2",
+    "torch==2.4.1+cu121",
+    'torchvision==0.19.1+cu121',
+    "numpy==1.24.1",
+    "pandas==2.0.3",
+    "scipy==1.10.1",
+    "matplotlib==3.7.5",
     "fsspec<=2025.3.0",  # fsspec==2025.3.1 has bug with python 3.8
+    "isaacgym==1.0rc4"
 ]
 genesis = [
-    "torch>=2.7.0",
-    "genesis-world",
+    "torch==2.7.1+cu118",
+    "torchvision==0.22.1+cu118",
+    "genesis-world>=0.3.2",
+    "numpy==2.3.2",
+    "pandas==2.3.2",
+    "scipy==1.15.3",
+    "wandb==0.21.3",
+    "matplotlib==3.10.6",
+    "tensorboard==2.20.0",
     "libigl==2.5.1",  # for genesis 0.2.1, see https://github.com/Genesis-Embodied-AI/Genesis/issues/1156#issuecomment-3069006079
 ]
 
