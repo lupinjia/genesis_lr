@@ -68,3 +68,13 @@ If a window like below appears, the installation is successful.
 
 ```{figure} ../../_static/images/genesis_installation_success.png
 ```
+
+## Optional Installation
+
+### Sim2Sim Support
+
+Deploying the policy to another simulator can effectively test the robustness of the policy. Also, the code used for sim2sim can oftern be deployed directly to the real robot. To avoid potential collapse on the real robot, it's better to first test the deployment code in simulation. 
+
+Since deployment codes are usually written in C++, a simulator which supports C++ interface is ideal. We offer a sim2sim framework in mujoco based on [unitree_sdk2](https://github.com/unitreerobotics/unitree_sdk2), [unitree_mujoco](https://github.com/unitreerobotics/unitree_mujoco) and [LibTorch](https://pytorch.org/).
+
+You can install this [go2_deploy](https://github.com/lupinjia/go2_deploy/tree/main) repo according to the instructions in README.md.

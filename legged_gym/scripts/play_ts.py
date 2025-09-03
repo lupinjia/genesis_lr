@@ -27,8 +27,6 @@ def play(args):
     env_cfg.terrain.num_cols = 1
     env_cfg.terrain.curriculum = False
     env_cfg.asset.fix_base_link = False
-    # initial state randomization
-    env_cfg.init_state.yaw_angle_range = [0., 0.]
     # velocity range
     env_cfg.commands.ranges.lin_vel_x = [-1.0, 1.0]
     env_cfg.commands.ranges.lin_vel_y = [-1.0, 1.0]

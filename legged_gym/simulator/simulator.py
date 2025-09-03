@@ -88,6 +88,7 @@ class GenesisSimulator(Simulator):
                 enable_collision=True,
                 enable_joint_limit=True,
                 enable_self_collision=self.cfg.asset.self_collisions_gs,
+                max_collision_pairs=self.cfg.sim.max_collision_pairs,
             ),
             show_viewer=not self.headless,
         )

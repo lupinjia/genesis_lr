@@ -63,7 +63,8 @@ html_theme_options = {
     "use_edit_page_button": True,
     "navbar_center": ["navbar-nav"],
     "show_version_warning_banner": False,
+    "article_footer_items": ["last-updated"]
 }
-# html_static_path = ["_static"]
+html_static_path = ["_static"]
 
 autosummary_generate = True

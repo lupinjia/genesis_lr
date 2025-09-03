@@ -31,8 +31,6 @@ class GO2Cfg( LeggedRobotCfg ):
             'FR_calf_joint': -1.5,  # [rad]
             'RR_calf_joint': -1.5,    # [rad]
         }
-        # initial state randomization
-        yaw_angle_range = [0., 3.14] # min max [rad]
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
@@ -138,6 +136,6 @@ class GO2CfgPPO( LeggedRobotCfgPPO ):
         run_name = ''
         experiment_name = 'go2'
         save_interval = 100
-        load_run = "Jul21_17-07-50_"
+        load_run = "Sep03_16-30-16_"
         checkpoint = -1
         max_iterations = 1000

@@ -57,8 +57,7 @@ class LeggedRobotCfg(BaseConfig):
         lin_vel = [0.0, 0.0, 0.0]  # x,y,z [m/s]
         ang_vel = [0.0, 0.0, 0.0]  # x,y,z [rad/s]
         # initial state randomization
-        base_ang_random_scale = 0.1
-        yaw_angle_range = [0.0, 0.0] # min max [rad]
+        base_ang_random_scale = 0.
         default_joint_angles = { # target angles when action = 0.0
             "joint_a": 0., 
             "joint_b": 0.}
@@ -186,8 +185,12 @@ class LeggedRobotCfg(BaseConfig):
         add_camera = False
 
     class sim:
+        # Common
         dt =  0.005
         substeps = 1
+        # For Genesis
+        max_collision_pairs = 100  # More collision pairs will occupy more GPU memory
+        # For IsaacGym
         gravity = [0., 0. ,-9.81]  # [m/s^2]
         up_axis = 1  # 0 is y, 1 is z
         use_gpu_pipeline = True

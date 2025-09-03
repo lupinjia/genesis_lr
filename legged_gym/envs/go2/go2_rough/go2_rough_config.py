@@ -53,8 +53,6 @@ class GO2RoughCfg( LeggedRobotCfg ):
             'FR_calf_joint': -1.5,  # [rad]
             'RR_calf_joint': -1.5,    # [rad]
         }
-        # initial state randomization
-        yaw_angle_range = [0., 3.14] # min max [rad]
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:

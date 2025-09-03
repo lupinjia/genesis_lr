@@ -40,8 +40,6 @@ def play(args):
     env_cfg.rewards.periodic_reward_framework.theta_fr_list = [0.5]
     env_cfg.rewards.periodic_reward_framework.theta_rl_list = [0.5]
     env_cfg.rewards.periodic_reward_framework.theta_rr_list = [0.0]
-    # initial state randomization
-    env_cfg.init_state.yaw_angle_range = [0., 0.]
     # velocity range
     env_cfg.commands.ranges.lin_vel_x = [-1.0, 1.0]
 
