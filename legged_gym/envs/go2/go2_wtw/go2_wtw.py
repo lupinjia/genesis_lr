@@ -36,28 +36,24 @@ class GO2WTW(LeggedRobot):
         self.phi = self.gait_time / self.gait_period
         
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
-        if self.num_build_envs > 0:
-            self.reset_idx(env_ids)
+        self.reset_idx(env_ids)
         self._calc_periodic_reward_obs()
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
 
         self.llast_actions[:] = self.last_actions[:]
         self.last_actions[:] = self.actions[:]
-        self.last_dof_vel[:] = self.dof_vel[:]
-
-        if self.debug:
-            self._draw_debug_vis()
+        self.simulator.last_dof_vel[:] = self.simulator.dof_vel[:]
 
     def compute_observations(self):
         """ Computes observations
         """
         obs_buf = torch.cat((
             self.commands[:, :3] * self.commands_scale,    # cmd     3
-            self.projected_gravity,                        # g       3
-            self.base_ang_vel * self.obs_scales.ang_vel,   # omega   3
-            (self.dof_pos - self.default_dof_pos) *
+            self.simulator.projected_gravity,                        # g       3
+            self.simulator.base_ang_vel * self.obs_scales.ang_vel,   # omega   3
+            (self.simulator.dof_pos - self.simulator.default_dof_pos) *
             self.obs_scales.dof_pos,                       # p_t     12
-            self.dof_vel * self.obs_scales.dof_vel,        # dp_t    12
+            self.simulator.dof_vel * self.obs_scales.dof_vel,        # dp_t    12
             self.actions,                                  # a_{t-1} 12
             self.clock_input,                              # clock   4
             self.gait_period,                              # gait period 1
@@ -74,31 +70,19 @@ class GO2WTW(LeggedRobot):
 
         if self.num_privileged_obs is not None:  # critic_obs, no noise
             self.privileged_obs_buf = torch.cat((
-                self.base_lin_vel * self.obs_scales.lin_vel,   # v_t     3
-                self.commands[:, :3] * self.commands_scale,    # cmd_t   3
-                self.projected_gravity,                        # g_t     3
-                self.base_ang_vel * self.obs_scales.ang_vel,   # omega_t 3
-                (self.dof_pos - self.default_dof_pos) *
-                self.obs_scales.dof_pos,                       # p_t     12
-                self.dof_vel * self.obs_scales.dof_vel,        # dp_t    12
-                self.actions,                                  # a_{t-1} 12
-                self.clock_input,                              # clock   4
-                self.gait_period,                              # gait period 1
-                self.base_height_target,                       # base height target 1
-                self.foot_clearance_target,                    # foot clearance target 1
-                self.pitch_target,                             # pitch target 1
-                self.theta,                                    # theta, gait offset, 4
+                self.simulator.base_lin_vel * self.obs_scales.lin_vel,   # v_t     3
+                obs_buf,                                       # all above
                 # domain randomization parameters
-                self._rand_push_vels[:, :2],                   # 2
-                self._added_base_mass,                         # 1
-                self._friction_values,                         # 1
-                self._base_com_bias,                           # 3
+                self.simulator._rand_push_vels[:, :2],                   # 2
+                self.simulator._added_base_mass,                         # 1
+                self.simulator._friction_values,                         # 1
+                self.simulator._base_com_bias,                           # 3
                 # ctrl_delay,                                    # 1
-                self._kp_scale,                                # 12
-                self._kd_scale,                                # 12
-                self._joint_armature,                          # 1
-                self._joint_stiffness,                         # 1
-                self._joint_damping,                           # 1
+                self.simulator._kp_scale,                                # 12
+                self.simulator._kd_scale,                                # 12
+                self.simulator._joint_armature,                          # 1
+                self.simulator._joint_stiffness,                         # 1
+                self.simulator._joint_damping,                           # 1
                 # privileged infos
                 self.exp_C_frc_fl, self.exp_C_spd_fl,
                 self.exp_C_frc_fr, self.exp_C_spd_fr,
@@ -335,19 +319,6 @@ class GO2WTW(LeggedRobot):
             self.num_envs, 1, dtype=torch.float, device=self.device
         )
         self.pitch_target[:, :] = self.cfg.rewards.behavior_params_range.pitch_target_range[1]
-
-    def _create_envs(self):
-        super()._create_envs()
-        # distinguish between 4 feet
-        for i in range(len(self.feet_indices)):
-            if "FL" in self.feet_names[i]:
-                self.foot_index_fl = self.feet_indices[i]
-            elif "FR" in self.feet_names[i]:
-                self.foot_index_fr = self.feet_indices[i]
-            elif "RL" in self.feet_names[i]:
-                self.foot_index_rl = self.feet_indices[i]
-            elif "RR" in self.feet_names[i]:
-                self.foot_index_rr = self.feet_indices[i]
             
     def _parse_cfg(self, cfg):
         super()._parse_cfg(cfg)
@@ -361,29 +332,35 @@ class GO2WTW(LeggedRobot):
         # q_frc and q_spd
         if foot_type == "FL":
             q_frc = torch.norm(
-                self.simulator.link_contact_forces[:, self.foot_index_fl, :], dim=-1).view(-1, 1)
+                self.simulator.link_contact_forces[:, 
+                                    self.simulator.feet_indices[0], :], dim=-1).view(-1, 1)
             q_spd = torch.norm(
-                self.feet_vel[:, 0, :], dim=-1).view(-1, 1) # sequence of feet_pos is FL, FR, RL, RR
+                self.simulator.feet_vel[:, 0, :], dim=-1).view(-1, 1) # sequence of feet_pos is FL, FR, RL, RR
             # size: num_envs; need to reshape to (num_envs, 1), or there will be error due to broadcasting
             # modulo phi over 1.0 to get cicular phi in [0, 1.0]
             phi = (self.phi + self.theta[:, 0].unsqueeze(1)) % 1.0
         elif foot_type == "FR":
             q_frc = torch.norm(
-                self.simulator.link_contact_forces[:, self.foot_index_fr, :], dim=-1).view(-1, 1)
+                self.simulator.link_contact_forces[:, 
+                                    self.simulator.feet_indices[1], :], dim=-1).view(-1, 1)
             q_spd = torch.norm(
-                self.feet_vel[:, 1, :], dim=-1).view(-1, 1)
+                self.simulator.feet_vel[:, 1, :], dim=-1).view(-1, 1)
             # modulo phi over 1.0 to get cicular phi in [0, 1.0]
             phi = (self.phi + self.theta[:, 1].unsqueeze(1)) % 1.0
         elif foot_type == "RL":
             q_frc = torch.norm(
-                self.simulator.link_contact_forces[:, self.foot_index_rl, :], dim=-1).view(-1, 1)
-            q_spd = torch.norm(self.feet_vel[:, 2, :], dim=-1).view(-1, 1)
+                self.simulator.link_contact_forces[:, 
+                                    self.simulator.feet_indices[2], :], dim=-1).view(-1, 1)
+            q_spd = torch.norm(
+                self.simulator.feet_vel[:, 2, :], dim=-1).view(-1, 1)
             # modulo phi over 1.0 to get cicular phi in [0, 1.0]
             phi = (self.phi + self.theta[:, 2].unsqueeze(1)) % 1.0
         elif foot_type == "RR":
             q_frc = torch.norm(
-                self.simulator.link_contact_forces[:, self.foot_index_rr, :], dim=-1).view(-1, 1)
-            q_spd = torch.norm(self.feet_vel[:, 3, :], dim=-1).view(-1, 1)
+                self.simulator.link_contact_forces[:, 
+                                    self.simulator.feet_indices[3], :], dim=-1).view(-1, 1)
+            q_spd = torch.norm(
+                self.simulator.feet_vel[:, 3, :], dim=-1).view(-1, 1)
             # modulo phi over 1.0 to get cicular phi in [0, 1.0]
             phi = (self.phi + self.theta[:, 3].unsqueeze(1)) % 1.0
         
@@ -465,7 +442,8 @@ class GO2WTW(LeggedRobot):
         """
         hip_joint_indices = [0, 3, 6, 9]
         dof_pos_error = torch.sum(torch.square(
-            self.simulator.dof_pos[:, hip_joint_indices] - self.simulator.default_dof_pos[hip_joint_indices]), dim=-1)
+            self.simulator.dof_pos[:, hip_joint_indices] - 
+            self.simulator.default_dof_pos[:, hip_joint_indices]), dim=-1)
         return dof_pos_error
     
     def _reward_tracking_base_height(self):

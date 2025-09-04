@@ -190,7 +190,7 @@ class GenesisSimulator(Simulator):
         self.feet_names = [
             link.name for link in self.robot.links if self.cfg.asset.foot_name in link.name]
         self.feet_indices = find_link_indices(self.feet_names)
-        print(f"feet link indices: {self.feet_indices}")
+        print(f"feet names: {self.feet_names}, feet link indices: {self.feet_indices}")
         assert len(self.feet_indices) > 0
 
         # dof position limits
