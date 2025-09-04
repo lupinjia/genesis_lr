@@ -36,8 +36,9 @@ def play(args):
     
     # export policy as a jit module (used to run it from C++)
     if EXPORT_POLICY:
-        path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
-        export_policy_as_jit(ppo_runner.alg.actor_critic, path)
+        path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 
+                            train_cfg.runner.load_run, 'exported', 'policies')
+        export_policy_as_jit(ppo_runner.alg.actor_critic, path, train_cfg.runner.load_run)
         print('Exported policy as jit script to: ', path)
 
     logger = Logger(env.dt)
@@ -85,6 +86,6 @@ def play(args):
             logger.print_rewards()
 
 if __name__ == '__main__':
-    EXPORT_POLICY = False
+    EXPORT_POLICY = True
     args = get_args()
     play(args)

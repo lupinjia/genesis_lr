@@ -22,6 +22,21 @@ Typically, sensors mounted on the robot include Inertial Measurement Unit (IMU) 
 
 To obtain base linear velocities, we need to conduct estimation based on other sensors using methods like Kalman Filter or estimator network (which will be explained afterwardsafter). Here we focus on exploiting other available information to make the robot walk successfully.
 
+## Modify Observations
+
+To deploy the policy to the real robot, we need to make sure that observations are all available in the real robot. So we need to delete `base_lin_vel` from obs and train a new policy.
+
+To see the reward curves and loss curves, you can utilize tensorboard or wandb. By default, the training data will be syncronized to wandb on the cloud. Comparing the session with `base_lin_vel` and without it, you may find that the reward curves of the one without `base_lin_vel` rises slower and even drops at the end of the training. That's mainly due to the lack of information.
+
+```{figure} ../../_static/images/compare_with_and_wo_lin_vel.png
+```
+
+## Sim2Sim in Mujoco
+
+Before deploying to the real robot, it's better to deploy the policy to another simulator. In this way, you can test your policy's robustness and avoid potential collapse on the real robot. To use this feature, you need to first install go2_deploy following the instructions in [Installation](installation.md).
+
+After executing `play.py` with `EXPORT_POLICY=True`, you will find a folder named `exported` in the specified `load_run` directory. Under the `policies` directory, you will find a JIT script file which can be deployed.
+
 
 
 ## References

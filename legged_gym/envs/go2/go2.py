@@ -36,3 +36,55 @@ class GO2(LeggedRobot):
             torch_rand_float(-0.4, 0.4, (len(env_ids), 4), self.device)
 
         self.simulator.reset_dofs(env_ids, dof_pos, dof_vel)
+    
+    # Override functions for deployment
+    # def compute_observations(self):
+    #     self.obs_buf = torch.cat((
+    #                             self.simulator.base_ang_vel * self.obs_scales.ang_vel,                   # 3
+    #                             self.simulator.projected_gravity,                                         # 3
+    #                             self.commands[:, :3] * self.commands_scale,                   # 3
+    #                             (self.simulator.dof_pos - self.simulator.default_dof_pos) 
+    #                                 * self.obs_scales.dof_pos, # num_dofs
+    #                             self.simulator.dof_vel * self.obs_scales.dof_vel,                         # num_dofs
+    #                             self.actions                                                    # num_actions
+    #                             ), dim=-1)
+    #     # add perceptive inputs if not blind
+    #     if self.cfg.terrain.measure_heights:
+    #         heights = torch.clip(self.simulator.base_pos[:, 2].unsqueeze(
+    #             1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
+    #         self.obs_buf = torch.cat((self.obs_buf, heights), dim=-1)
+
+    #     # add noise if needed
+    #     if self.add_noise:
+    #         self.obs_buf += (2 * torch.rand_like(self.obs_buf) - \
+    #                          1) * self.noise_scale_vec
+
+    #     if self.cfg.domain_rand.randomize_ctrl_delay:
+    #         # normalize to [0, 1]
+    #         ctrl_delay = (self.action_delay /
+    #                       self.cfg.domain_rand.ctrl_delay_step_range[1]).unsqueeze(1)
+
+    #     if self.num_privileged_obs is not None:
+    #         self.privileged_obs_buf = torch.cat(
+    #             (
+    #                 self.simulator.base_lin_vel * self.obs_scales.lin_vel,
+    #                 self.simulator.base_ang_vel * self.obs_scales.ang_vel,
+    #                 self.simulator.projected_gravity,
+    #                 self.commands[:, :3] * self.commands_scale,
+    #                 (self.simulator.dof_pos - self.simulator.default_dof_pos) * \
+    #                  self.obs_scales.dof_pos,
+    #                 self.simulator.dof_vel * self.obs_scales.dof_vel,
+    #                 self.actions,
+    #                 self.last_actions,
+    #                 self.simulator._friction_values,        # 1
+    #                 self.simulator._added_base_mass,        # 1
+    #                 self.simulator._base_com_bias,          # 3
+    #                 self.simulator._rand_push_vels[:, :2],  # 2
+    #             ),
+    #             dim=-1,
+    #         )
+    #         # add perceptive inputs if not blind
+    #         if self.cfg.terrain.measure_heights:
+    #             heights = torch.clip(self.simulator.base_pos[:, 2].unsqueeze(
+    #                 1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
+    #             self.privileged_obs_buf = torch.cat((self.privileged_obs_buf, heights), dim=-1)

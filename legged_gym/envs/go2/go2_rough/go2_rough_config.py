@@ -8,7 +8,6 @@ class GO2RoughCfg( LeggedRobotCfg ):
         num_actions = 12
         num_privileged_obs = 67 + 121
         env_spacing = 3.  # not used with heightfields/trimeshes
-        debug_viz = False
     
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = "heightfield" # none, plane, heightfield

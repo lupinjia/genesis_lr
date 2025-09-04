@@ -42,14 +42,15 @@ class LeggedRobot(BaseTask):
             actions (torch.Tensor): Tensor of shape (num_envs, num_actions_per_env)
         """
         clip_actions = self.cfg.normalization.clip_actions
-        self.actions = torch.clip(
+        actions = torch.clip(
             actions, -clip_actions, clip_actions).to(self.device)
+        self.actions[:] = actions[:]
         if self.cfg.domain_rand.randomize_ctrl_delay:
             self.action_queue[:, 1:] = self.action_queue[:, :-1].clone()
-            self.action_queue[:, 0] = self.actions.clone()
-            self.actions = self.action_queue[torch.arange(
-                self.num_envs), self.action_delay].clone()  # use self-implemented pd controller
-        self.simulator.step(self.actions)
+            self.action_queue[:, 0] = actions.clone()
+            actions = self.action_queue[torch.arange(
+                self.num_envs), self.action_delay].clone()
+        self.simulator.step(actions)
         self.post_physics_step()
 
         # return clipped obs, clipped states (None), rewards, dones and infos
@@ -112,6 +113,7 @@ class LeggedRobot(BaseTask):
             self.update_command_curriculum(env_ids)
 
         self._resample_commands(env_ids)
+        self._reset_dofs(env_ids)
         self.simulator.reset_idx(env_ids)
 
         # reset buffers
@@ -228,13 +230,13 @@ class LeggedRobot(BaseTask):
     # ------------- Callbacks --------------
     
     def _reset_dofs(self, env_ids):
-        # dof_pos = torch.zeros((len(env_ids), self.num_actions), dtype=torch.float, 
-        #                       device=self.device, requires_grad=False)
-        # dof_vel = torch.zeros((len(env_ids), self.num_actions), dtype=torch.float, 
-        #                       device=self.device, requires_grad=False)
-        # dof_pos[:, :] = self.simulator.default_dof_pos[:] + \
-        #     torch_rand_float(-0.2, 0.2, (len(env_ids), self.num_actions), self.device)
-        self.simulator.reset_dofs(env_ids)
+        dof_pos = torch.zeros((len(env_ids), self.num_actions), dtype=torch.float, 
+                              device=self.device, requires_grad=False)
+        dof_vel = torch.zeros((len(env_ids), self.num_actions), dtype=torch.float, 
+                              device=self.device, requires_grad=False)
+        dof_pos[:, :] = self.simulator.default_dof_pos[:] + \
+            torch_rand_float(-0.2, 0.2, (len(env_ids), self.num_actions), self.device)
+        self.simulator.reset_dofs(env_ids, dof_pos, dof_vel)
 
     def _post_physics_step_callback(self):
         """ Callback called before computing terminations, rewards, and observations

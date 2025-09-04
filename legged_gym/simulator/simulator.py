@@ -227,7 +227,10 @@ class GenesisSimulator(Simulator):
         # randomize joint damping
         if self.cfg.domain_rand.randomize_joint_damping:
             self._randomize_joint_damping(np.arange(self.num_envs))
-
+        # randomize pd gain
+        if self.cfg.domain_rand.randomize_pd_gain:
+            self._randomize_pd_gain(np.arange(self.num_envs))
+            
     def _init_buffers(self):
         self.base_init_pos = torch.tensor(
             self.cfg.init_state.pos, device=self.device
@@ -252,7 +255,9 @@ class GenesisSimulator(Simulator):
         self.base_quat = torch.zeros(
             (self.num_envs, 4), device=self.device, dtype=torch.float)
         self.base_quat_gs = torch.zeros(
-            (self.num_envs, 4), device=self.device, dtype=torch.float) # quaternion in isaacgym definition, xyzw
+            (self.num_envs, 4), device=self.device, dtype=torch.float) # quaternion in genesis definition, wxyz
+        self.base_euler = torch.zeros(
+            (self.num_envs, 3), device=self.device, dtype=torch.float)
         self.link_contact_forces = torch.zeros(
             (self.num_envs, self.robot.n_links, 3), device=self.device, dtype=torch.float
         )
@@ -269,6 +274,7 @@ class GenesisSimulator(Simulator):
             device=self.device,
             dtype=torch.float,
         )
+        self.default_dof_pos = self.default_dof_pos.unsqueeze(0)
         # PD control
         stiffness = self.cfg.control.stiffness
         damping = self.cfg.control.damping
@@ -305,6 +311,7 @@ class GenesisSimulator(Simulator):
         self.base_quat_gs[:] = self.robot.get_quat()
         self.base_quat[:,-1] = self.robot.get_quat()[:,0]   # wxyz to xyzw
         self.base_quat[:,:3] = self.robot.get_quat()[:,1:4] # wxyz to xyzw
+        self.base_euler[:] = get_euler_xyz(self.base_quat)
         self.base_lin_vel[:] = quat_rotate_inverse(self.base_quat, self.robot.get_vel())
         self.base_ang_vel[:] = quat_rotate_inverse(self.base_quat, self.robot.get_ang())
         self.projected_gravity = quat_rotate_inverse(self.base_quat, self.global_gravity)
@@ -389,6 +396,8 @@ class GenesisSimulator(Simulator):
             self._randomize_joint_friction(env_ids)
         if self.cfg.domain_rand.randomize_joint_damping:
             self._randomize_joint_damping(env_ids)
+        if self.cfg.domain_rand.randomize_pd_gain:
+            self._randomize_pd_gain(env_ids)
         
         self.last_dof_vel[env_ids] = 0.
     
@@ -537,9 +546,9 @@ class GenesisSimulator(Simulator):
         # control_type = 'P'
         actions_scaled = actions * self.cfg.control.action_scale
         torques = (
-            self.batched_p_gains * (actions_scaled +
+            self._kp_scale * self.batched_p_gains * (actions_scaled +
                                     self.default_dof_pos - self.dof_pos)
-            - self.batched_d_gains * self.dof_vel
+            - self._kd_scale * self.batched_d_gains * self.dof_vel
         )
         return torques
 
@@ -685,6 +694,12 @@ class GenesisSimulator(Simulator):
         self.robot.set_dofs_damping(
             damping, self.motors_dof_idx, envs_idx=env_ids)
 
+    def _randomize_pd_gain(self, env_ids):
+        self._kp_scale[env_ids] = torch_rand_float(
+                self.cfg.domain_rand.kp_range[0], self.cfg.domain_rand.kp_range[1], (len(env_ids), self.num_actions), device=self.device)
+        self._kd_scale[env_ids] = torch_rand_float(
+                self.cfg.domain_rand.kd_range[0], self.cfg.domain_rand.kd_range[1], (len(env_ids), self.num_actions), device=self.device)
+    
     def _setup_camera(self):
         ''' Set camera position and direction
         '''

@@ -4,7 +4,7 @@ class GO2Cfg( LeggedRobotCfg ):
     
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
-        num_observations = 48
+        num_observations = 48 # 48 for only sim, 45 for deployment
         num_privileged_obs = None
         num_actions = 12
         env_spacing = 2.0
@@ -47,22 +47,22 @@ class GO2Cfg( LeggedRobotCfg ):
         penalize_contacts_on = ["thigh", "calf"]
         terminate_after_contacts_on = ["base"]
         # For Genesis
-        dof_names = [        # specify the sequence of actions
-            'FR_hip_joint',
-            'FR_thigh_joint',
-            'FR_calf_joint',
+        dof_names = [        # specify the sequence of actions, keep consistent with IsaacGym
             'FL_hip_joint',
             'FL_thigh_joint',
             'FL_calf_joint',
-            'RR_hip_joint',
-            'RR_thigh_joint',
-            'RR_calf_joint',
+            'FR_hip_joint',
+            'FR_thigh_joint',
+            'FR_calf_joint',
             'RL_hip_joint',
             'RL_thigh_joint',
-            'RL_calf_joint',]
+            'RL_calf_joint',
+            'RR_hip_joint',
+            'RR_thigh_joint',
+            'RR_calf_joint',]
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
         self_collisions_gs = True
-        # 
+        # For IsaacGym
         flip_visual_attachments = False # Some .obj meshes must be flipped from y-up to z-up
   
     class rewards( LeggedRobotCfg.rewards ):
@@ -110,7 +110,7 @@ class GO2Cfg( LeggedRobotCfg ):
         friction_range = [0.5, 1.25]
         randomize_base_mass = True
         added_mass_range = [-1., 1.]
-        push_robots = False
+        push_robots = True
         push_interval_s = 15
         max_push_vel_xy = 1.
         randomize_com_displacement = True
@@ -132,9 +132,9 @@ class GO2CfgPPO( LeggedRobotCfgPPO ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = 'ActorCritic'
-        run_name = ''
+        run_name = 'with_lin'
         experiment_name = 'go2'
-        save_interval = 100
-        load_run = "Sep03_16-30-16_"
+        save_interval = 200
+        load_run = "Sep04_19-36-42_with_lin"
         checkpoint = -1
         max_iterations = 1000

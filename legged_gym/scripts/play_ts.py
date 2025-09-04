@@ -21,7 +21,6 @@ def play(args):
     for i in range(2):
         env_cfg.viewer.pos[i] = env_cfg.viewer.pos[i] - env_cfg.terrain.plane_length / 4
         env_cfg.viewer.lookat[i] = env_cfg.viewer.lookat[i] - env_cfg.terrain.plane_length / 4
-    env_cfg.env.debug_viz = True
     env_cfg.viewer.add_camera = True  # use a extra camera for moving
     env_cfg.terrain.num_rows = 1
     env_cfg.terrain.num_cols = 1

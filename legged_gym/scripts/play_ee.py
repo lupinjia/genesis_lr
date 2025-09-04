@@ -18,7 +18,6 @@ def play(args):
     # override some parameters for testing
     train_cfg.runner_class_name = "OnPolicyRunnerEE"
     env_cfg.env.num_envs = min(env_cfg.env.num_envs, 1)
-    env_cfg.env.debug_viz = True
     env_cfg.viewer.add_camera = True  # use a extra camera for moving
     env_cfg.terrain.num_rows = 1
     env_cfg.terrain.num_cols = 1
