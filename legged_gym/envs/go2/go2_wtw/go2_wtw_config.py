@@ -5,7 +5,6 @@ class GO2WTWCfg(LeggedRobotCfg):
 
     class env(LeggedRobotCfg.env):
         num_envs = 4096
-        env_spacing = 1.0
         num_actions = 12
         # observation history
         frame_stack = 5   # policy frame stack
@@ -14,11 +13,10 @@ class GO2WTWCfg(LeggedRobotCfg):
         num_observations = int(num_single_obs * frame_stack)
         single_num_privileged_obs = 102
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
+        env_spacing = 1.0
 
     class terrain(LeggedRobotCfg.terrain):
         mesh_type = 'plane'  # "heightfield" # none, plane, heightfield or trimesh
-        friction = 1.0
-        restitution = 0.
 
     class init_state(LeggedRobotCfg.init_state):
         pos = [0.0, 0.0, 0.42]  # x,y,z [m]
@@ -38,8 +36,6 @@ class GO2WTWCfg(LeggedRobotCfg):
             'FR_calf_joint': -1.5,  # [rad]
             'RR_calf_joint': -1.5,    # [rad]
         }
-        # initial state randomization
-        yaw_angle_range = [0., 3.14]  # min max [rad]
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
@@ -47,30 +43,33 @@ class GO2WTWCfg(LeggedRobotCfg):
         stiffness = {'joint': 20.}   # [N*m/rad]
         damping = {'joint': 0.5}     # [N*m*s/rad]
         action_scale = 0.25  # action scale: target angle = actionScale * action + defaultAngle
-        dt = 0.02  # control frequency 50Hz
         decimation = 4  # decimation: Number of control action updates @ sim DT per policy DT
 
     class asset(LeggedRobotCfg.asset):
+        # Common
         name = "go2" # name of the robot
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
-        dof_names = [        # specify yhe sequence of actions
-            'FR_hip_joint',
-            'FR_thigh_joint',
-            'FR_calf_joint',
+        foot_name = "foot"
+        penalize_contacts_on = ["thigh", "calf"]
+        terminate_after_contacts_on = ["base"]
+        # For Genesis
+        dof_names = [        # specify the sequence of actions, keep consistent with IsaacGym
             'FL_hip_joint',
             'FL_thigh_joint',
             'FL_calf_joint',
-            'RR_hip_joint',
-            'RR_thigh_joint',
-            'RR_calf_joint',
+            'FR_hip_joint',
+            'FR_thigh_joint',
+            'FR_calf_joint',
             'RL_hip_joint',
             'RL_thigh_joint',
-            'RL_calf_joint',]
-        foot_name = ["foot"]
-        penalize_contacts_on = ["thigh", "calf", "hip", "base"]
-        terminate_after_contacts_on = ["base"]
+            'RL_calf_joint',
+            'RR_hip_joint',
+            'RR_thigh_joint',
+            'RR_calf_joint',]
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
-        self_collisions = True
+        self_collisions_gs = True
+        # For IsaacGym
+        flip_visual_attachments = False # Some .obj meshes must be flipped from y-up to z-up
 
     class rewards(LeggedRobotCfg.rewards):
         soft_dof_pos_limit = 0.9

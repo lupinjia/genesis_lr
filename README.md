@@ -1,18 +1,13 @@
 # 🦿 Legged Robotics in Genesis
 
-A [legged_gym](https://github.com/leggedrobotics/legged_gym) based framework for training legged robots in [genesis](https://github.com/Genesis-Embodied-AI/Genesis/tree/main)
+A [legged_gym](https://github.com/leggedrobotics/legged_gym) based framework for training legged robots in [Genesis](https://github.com/Genesis-Embodied-AI/Genesis/tree/main) and [IsaacGym](https://developer.nvidia.com/isaac-gym)
 
 ## Table of Contents
 
 - [🦿 Legged Robotics in Genesis](#-legged-robotics-in-genesis)
   - [Table of Contents](#table-of-contents)
   - [🌟 Features](#-features)
-  - [🧪 Test Results](#-test-results)
-  - [🛠 Installation](#-installation)
-  - [👋 Usage](#-usage)
-    - [🚀 Quick Start](#-quick-start)
-    - [📖 Instructions](#-instructions)
-    - [Deployment](#deployment)
+  - [🛠 Installation and Usage](#-installation-and-usage)
   - [🖼️ Gallery](#️-gallery)
   - [🙏 Acknowledgements](#-acknowledgements)
   - [TODO](#todo)
@@ -23,13 +18,11 @@ A [legged_gym](https://github.com/leggedrobotics/legged_gym) based framework for
 
 - **Totally based on [legged_gym](https://github.com/leggedrobotics/legged_gym)**
 
-- **Faster and Smaller**
+- **Integration of 2 simulators: Genesis and IsaacGym**
   
-  For a go2 walking on the plane task with 4096 envs, the training speed in Genesis is approximately **1.3x** compared to [Isaac Gym](https://developer.nvidia.com/isaac-gym), while the graphics memory usage is roughly **1/2** compared to IsaacGym.
+  You can train policies in two simulators using one framework and two conda environments.
 
-  With this smaller memory usage, it's possible to **run more parallel environments**, which can further improve the training speed.
-
-- Incorporation of various methods in published RL papers
+- **Incorporation of various methods in published RL papers**
   
   | Method | Paper Link | Location | Materials |
   |--------|------------|----------|-----------|
@@ -37,49 +30,9 @@ A [legged_gym](https://github.com/leggedrobotics/legged_gym) based framework for
   | System Identification | [Learning Agile Bipedal Motions on a Quadrupedal Robot](https://arxiv.org/abs/2311.05818) | [go2_sysid](https://github.com/lupinjia/genesis_lr/tree/main/legged_gym/envs/go2/go2_sysid) | |
   | Teacher-Student | [Rapid Locomotion via Reinforcement Learning](https://agility.csail.mit.edu/) | [go2_ts](https://github.com/lupinjia/genesis_lr/tree/main/legged_gym/envs/go2/go2_ts) | |
 
+## 🛠 Installation and Usage
 
-## 🧪 Test Results
-
-For tests conducted on Genesis, please refer to [tests.md](./test_resources/tests.md)
-
-## 🛠 Installation
-
-1. Create a new python virtual env with python>=3.10
-2. Install [PyTorch](https://pytorch.org/)
-3. Install Genesis following the instructions in the [Genesis repo](https://github.com/Genesis-Embodied-AI/Genesis)
-4. Install genesis_lr
-   ```bash
-   git clone git@github.com:lupinjia/genesis_lr.git
-   cd genesis_lr
-   pip install -e .
-   ```
-
-## 👋 Usage
-
-### 🚀 Quick Start
-
-By default, the task is set to `go2`(in `utils/helpers.py`), we can run a training session with the following command:
-
-```bash
-cd legged_gym/scripts
-python train.py --headless # run training without rendering
-```
-
-After the training is done, paste the `run_name` under `logs/go2` to `load_run` in `go2_config.py`: 
-
-![](./test_resources/paste_load_run.png)
-
-Then, run `play.py` to visualize the trained model:
-
-![](./test_resources/go2_flat_play.gif)
-
-### 📖 Instructions
-
-For more detailed instructions, please refer to the [wiki page](https://github.com/lupinjia/genesis_lr/wiki)
-
-### Deployment
-
-For deployment code, please refer to [go2_deploy](https://github.com/lupinjia/go2_deploy)
+Please refer to the [doc of this repo](https://genesis-lr.readthedocs.io/en/latest/).
 
 ## 🖼️ Gallery
 

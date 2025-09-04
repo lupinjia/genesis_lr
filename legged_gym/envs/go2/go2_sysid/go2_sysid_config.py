@@ -9,7 +9,6 @@ class GO2SysIDCfg( LeggedRobotCfg ):
     
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = "plane" # none, plane, heightfield
-        friction = 1.0
         restitution = 0.
         
     class init_state( LeggedRobotCfg.init_state ):
@@ -30,8 +29,6 @@ class GO2SysIDCfg( LeggedRobotCfg ):
             'FR_calf_joint': -1.5,  # [rad]
             'RR_calf_joint': -1.5,    # [rad]
         }
-        # initial state randomization
-        yaw_angle_range = [0., 0] # min max [rad]
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:

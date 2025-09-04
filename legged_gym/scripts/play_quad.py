@@ -21,7 +21,6 @@ def play(args):
     for i in range(2):
         env_cfg.viewer.pos[i] = env_cfg.viewer.pos[i] - env_cfg.terrain.plane_length / 4
         env_cfg.viewer.lookat[i] = env_cfg.viewer.lookat[i] - env_cfg.terrain.plane_length / 4
-    env_cfg.env.debug_viz = True
     if FOLLOW_ROBOT:
         env_cfg.viewer.add_camera = True  # use a extra camera for moving
     env_cfg.terrain.border_size = 5
@@ -40,8 +39,6 @@ def play(args):
     env_cfg.rewards.periodic_reward_framework.theta_fr_list = [0.5]
     env_cfg.rewards.periodic_reward_framework.theta_rl_list = [0.5]
     env_cfg.rewards.periodic_reward_framework.theta_rr_list = [0.0]
-    # initial state randomization
-    env_cfg.init_state.yaw_angle_range = [0., 0.]
     # velocity range
     env_cfg.commands.ranges.lin_vel_x = [-1.0, 1.0]
 

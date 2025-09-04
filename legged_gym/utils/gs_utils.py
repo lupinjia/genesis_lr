@@ -1,22 +1,10 @@
 import numpy as np
 import torch
 
-
-def wrap_to_pi(angles):
-    angles %= 2 * np.pi
-    angles -= 2 * np.pi * (angles > np.pi)
-    return angles
-
-
-def gs_rand_float(lower, upper, shape, device):
-    return (upper - lower) * torch.rand(size=shape, device=device) + lower
-
-
 def gs_inv_quat(quat):
     qw, qx, qy, qz = quat.unbind(-1)
     inv_quat = torch.stack([1.0 * qw, -qx, -qy, -qz], dim=-1)
     return inv_quat
-
 
 def gs_transform_by_quat(pos, quat):
     qw, qx, qy, qz = quat.unbind(-1)
@@ -38,7 +26,6 @@ def gs_transform_by_quat(pos, quat):
     rotated_pos = torch.matmul(rot_matrix, pos.unsqueeze(-1)).squeeze(-1)
 
     return rotated_pos
-
 
 def gs_quat2euler(quat):  # xyz
     # Extract quaternion components
@@ -117,7 +104,6 @@ def gs_quat_mul(a, b):
 
     return quat
 
-
 def gs_quat_apply(a, b):
     shape = b.shape
     a = a.reshape(-1, 4)
@@ -125,14 +111,6 @@ def gs_quat_apply(a, b):
     xyz = a[:, 1:]
     t = xyz.cross(b, dim=-1) * 2
     return (b + a[:, :1] * t + xyz.cross(t, dim=-1)).view(shape)
-
-
-def gs_quat_apply_yaw(quat, vec):
-    quat_yaw = quat.clone().view(-1, 4)
-    quat_yaw[:, 1:3] = 0.
-    quat_yaw = normalize(quat_yaw)
-    return gs_quat_apply(quat_yaw, vec)
-
 
 def gs_quat_conjugate(a):
     shape = a.shape

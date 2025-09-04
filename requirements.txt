@@ -1,0 +1,9 @@
+genesis_world==0.3.2
+matplotlib==3.10.6
+numpy==2.3.2
+pandas==2.3.2
+scipy==1.15.3
+torch==2.7.1+cu118
+torchvision==0.22.1+cu118
+tqdm==4.67.1
+xlsxwriter==3.2.5

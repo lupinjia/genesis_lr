@@ -18,7 +18,6 @@ def play(args):
     # override some parameters for testing
     train_cfg.runner_class_name = "OnPolicyRunnerEE"
     env_cfg.env.num_envs = min(env_cfg.env.num_envs, 1)
-    env_cfg.env.debug_viz = True
     env_cfg.viewer.add_camera = True  # use a extra camera for moving
     env_cfg.terrain.num_rows = 1
     env_cfg.terrain.num_cols = 1
@@ -28,8 +27,6 @@ def play(args):
     env_cfg.domain_rand.push_robots = False
     env_cfg.domain_rand.randomize_base_mass = False
     env_cfg.asset.fix_base_link = False
-    # initial state randomization
-    env_cfg.init_state.yaw_angle_range = [0., 0.]
     # velocity range
     env_cfg.commands.ranges.lin_vel_x = [1.0, 1.0]
     env_cfg.commands.ranges.lin_vel_y = [0., 0.]

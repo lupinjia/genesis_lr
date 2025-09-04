@@ -8,7 +8,6 @@ class GO2RoughCfg( LeggedRobotCfg ):
         num_actions = 12
         num_privileged_obs = 67 + 121
         env_spacing = 3.  # not used with heightfields/trimeshes
-        debug_viz = False
     
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = "heightfield" # none, plane, heightfield
@@ -16,7 +15,6 @@ class GO2RoughCfg( LeggedRobotCfg ):
         vertical_scale = 0.005 # [m]
         border_size = 5 # [m]. implemented a out_of_bound detection, so border_size can be smaller
         curriculum = True
-        friction = 1.0
         restitution = 0.
         # rough terrain only:
         measure_heights = True
@@ -54,8 +52,6 @@ class GO2RoughCfg( LeggedRobotCfg ):
             'FR_calf_joint': -1.5,  # [rad]
             'RR_calf_joint': -1.5,    # [rad]
         }
-        # initial state randomization
-        yaw_angle_range = [0., 3.14] # min max [rad]
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:

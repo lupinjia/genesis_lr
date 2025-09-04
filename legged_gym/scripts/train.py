@@ -1,18 +1,15 @@
-import argparse
-import numpy as np
 import os
-from datetime import datetime
 
-import genesis as gs
+from legged_gym import *
 from legged_gym.envs import *
 from legged_gym.utils import get_args, task_registry
-import torch
 import shutil
 
 def train(args):
-    gs.init(
-        backend=gs.cpu if args.cpu else gs.gpu,
-        logging_level='warning')
+    if SIMULATOR == "genesis":
+        gs.init(
+            backend=gs.cpu if args.cpu else gs.gpu,
+            logging_level='warning')
     # Make environment and algorithm runner
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
     ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args)

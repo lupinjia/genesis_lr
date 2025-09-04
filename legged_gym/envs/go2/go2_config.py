@@ -4,15 +4,13 @@ class GO2Cfg( LeggedRobotCfg ):
     
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
-        num_observations = 48
+        num_observations = 48 # 48 for only sim, 45 for deployment
         num_privileged_obs = None
         num_actions = 12
-        env_spacing = 0.5
+        env_spacing = 2.0
     
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = "plane" # none, plane, heightfield
-        friction = 1.0
-        restitution = 0.
         
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]
@@ -32,8 +30,6 @@ class GO2Cfg( LeggedRobotCfg ):
             'FR_calf_joint': -1.5,  # [rad]
             'RR_calf_joint': -1.5,    # [rad]
         }
-        # initial state randomization
-        yaw_angle_range = [0., 3.14] # min max [rad]
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
@@ -41,30 +37,33 @@ class GO2Cfg( LeggedRobotCfg ):
         stiffness = {'joint': 20.}   # [N*m/rad]
         damping = {'joint': 0.5}     # [N*m*s/rad]
         action_scale = 0.25 # action scale: target angle = actionScale * action + defaultAngle
-        dt =  0.02  # control frequency 50Hz
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
 
     class asset( LeggedRobotCfg.asset ):
+        # Common
         name = "go2"
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
-        dof_names = [        # specify the sequence of actions
-            'FR_hip_joint',
-            'FR_thigh_joint',
-            'FR_calf_joint',
+        foot_name = "foot"
+        penalize_contacts_on = ["thigh", "calf"]
+        terminate_after_contacts_on = ["base"]
+        # For Genesis
+        dof_names = [        # specify the sequence of actions, keep consistent with IsaacGym
             'FL_hip_joint',
             'FL_thigh_joint',
             'FL_calf_joint',
-            'RR_hip_joint',
-            'RR_thigh_joint',
-            'RR_calf_joint',
+            'FR_hip_joint',
+            'FR_thigh_joint',
+            'FR_calf_joint',
             'RL_hip_joint',
             'RL_thigh_joint',
-            'RL_calf_joint',]
-        foot_name = ["foot"]
-        penalize_contacts_on = ["thigh", "calf"]
-        terminate_after_contacts_on = ["base"]
+            'RL_calf_joint',
+            'RR_hip_joint',
+            'RR_thigh_joint',
+            'RR_calf_joint',]
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
-        self_collisions = True
+        self_collisions_gs = True
+        # For IsaacGym
+        flip_visual_attachments = False # Some .obj meshes must be flipped from y-up to z-up
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
@@ -106,6 +105,19 @@ class GO2Cfg( LeggedRobotCfg ):
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
             heading = [-3.14, 3.14]
 
+    class domain_rand( LeggedRobotCfg.domain_rand ):
+        randomize_friction = True
+        friction_range = [0.5, 1.25]
+        randomize_base_mass = True
+        added_mass_range = [-1., 1.]
+        push_robots = True
+        push_interval_s = 15
+        max_push_vel_xy = 1.
+        randomize_com_displacement = True
+        com_pos_x_range = [-0.01, 0.01]
+        com_pos_y_range = [-0.01, 0.01]
+        com_pos_z_range = [-0.01, 0.01]
+
 class GO2CfgPPO( LeggedRobotCfgPPO ):
     class policy (LeggedRobotCfgPPO.policy ):
         init_noise_std = 1.0
@@ -120,9 +132,9 @@ class GO2CfgPPO( LeggedRobotCfgPPO ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = 'ActorCritic'
-        run_name = ''
+        run_name = 'with_lin'
         experiment_name = 'go2'
-        save_interval = 100
-        load_run = "Jul21_17-07-50_"
+        save_interval = 200
+        load_run = "Sep04_19-36-42_with_lin"
         checkpoint = -1
         max_iterations = 1000

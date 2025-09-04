@@ -1,7 +1,4 @@
-import genesis as gs
-from genesis.utils.geom import quat_to_xyz, transform_by_quat, inv_quat, transform_quat_by_quat
-from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
-from legged_gym import LEGGED_GYM_ROOT_DIR, envs
+from legged_gym import *
 from time import time
 import numpy as np
 import os
@@ -12,13 +9,13 @@ from typing import Tuple, Dict
 
 from legged_gym import LEGGED_GYM_ROOT_DIR
 from legged_gym.envs.base.legged_robot import LeggedRobot
-from legged_gym.utils.math_utils import wrap_to_pi, torch_rand_sqrt_float
+from legged_gym.utils.math_utils import torch_rand_float
 from legged_gym.utils.helpers import class_to_dict
 from legged_gym.utils.gs_utils import *
 from .go2_config import GO2Cfg
 
 class GO2(LeggedRobot):
-    def _reset_dofs(self, envs_idx):
+    def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments
         Positions are randomly selected within 0.5:1.5 x default positions.
         Velocities are set to zero.
@@ -27,17 +24,67 @@ class GO2(LeggedRobot):
             env_ids (List[int]): Environemnt ids
         """
         
-        dof_pos = torch.zeros((len(envs_idx), self.num_actions), dtype=gs.tc_float, device=self.device)
-        dof_pos[:, [0, 3, 6, 9]] = self.default_dof_pos[[0, 3, 6, 9]] + gs_rand_float(-0.2, 0.2, (len(envs_idx), 4), self.device)
-        dof_pos[:, [1, 4, 7, 10]] = self.default_dof_pos[[0, 1, 4, 7]] + gs_rand_float(-0.4, 0.4, (len(envs_idx), 4), self.device)
-        dof_pos[:, [2, 5, 8, 11]] = self.default_dof_pos[[0, 2, 5, 8]] + gs_rand_float(-0.4, 0.4, (len(envs_idx), 4), self.device)
-        self.dof_pos[envs_idx] = dof_pos
-        
-        self.dof_vel[envs_idx] = 0.0
-        self.robot.set_dofs_position(
-            position=self.dof_pos[envs_idx],
-            dofs_idx_local=self.motors_dof_idx,
-            zero_velocity=True,
-            envs_idx=envs_idx,
-        )
-        self.robot.zero_all_dofs_velocity(envs_idx)
+        dof_pos = torch.zeros((len(env_ids), self.num_actions), dtype=torch.float, 
+                              device=self.device, requires_grad=False)
+        dof_vel = torch.zeros((len(env_ids), self.num_actions), dtype=torch.float, 
+                              device=self.device, requires_grad=False)
+        dof_pos[:, [0, 3, 6, 9]] = self.simulator.default_dof_pos[:, [0, 3, 6, 9]] + \
+            torch_rand_float(-0.2, 0.2, (len(env_ids), 4), self.device)
+        dof_pos[:, [1, 4, 7, 10]] = self.simulator.default_dof_pos[:, [1, 4, 7, 10]] + \
+            torch_rand_float(-0.4, 0.4, (len(env_ids), 4), self.device)
+        dof_pos[:, [2, 5, 8, 11]] = self.simulator.default_dof_pos[:, [2, 5, 8, 11]] + \
+            torch_rand_float(-0.4, 0.4, (len(env_ids), 4), self.device)
+
+        self.simulator.reset_dofs(env_ids, dof_pos, dof_vel)
+    
+    # Override functions for deployment
+    # def compute_observations(self):
+    #     self.obs_buf = torch.cat((
+    #                             self.simulator.base_ang_vel * self.obs_scales.ang_vel,                   # 3
+    #                             self.simulator.projected_gravity,                                         # 3
+    #                             self.commands[:, :3] * self.commands_scale,                   # 3
+    #                             (self.simulator.dof_pos - self.simulator.default_dof_pos) 
+    #                                 * self.obs_scales.dof_pos, # num_dofs
+    #                             self.simulator.dof_vel * self.obs_scales.dof_vel,                         # num_dofs
+    #                             self.actions                                                    # num_actions
+    #                             ), dim=-1)
+    #     # add perceptive inputs if not blind
+    #     if self.cfg.terrain.measure_heights:
+    #         heights = torch.clip(self.simulator.base_pos[:, 2].unsqueeze(
+    #             1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
+    #         self.obs_buf = torch.cat((self.obs_buf, heights), dim=-1)
+
+    #     # add noise if needed
+    #     if self.add_noise:
+    #         self.obs_buf += (2 * torch.rand_like(self.obs_buf) - \
+    #                          1) * self.noise_scale_vec
+
+    #     if self.cfg.domain_rand.randomize_ctrl_delay:
+    #         # normalize to [0, 1]
+    #         ctrl_delay = (self.action_delay /
+    #                       self.cfg.domain_rand.ctrl_delay_step_range[1]).unsqueeze(1)
+
+    #     if self.num_privileged_obs is not None:
+    #         self.privileged_obs_buf = torch.cat(
+    #             (
+    #                 self.simulator.base_lin_vel * self.obs_scales.lin_vel,
+    #                 self.simulator.base_ang_vel * self.obs_scales.ang_vel,
+    #                 self.simulator.projected_gravity,
+    #                 self.commands[:, :3] * self.commands_scale,
+    #                 (self.simulator.dof_pos - self.simulator.default_dof_pos) * \
+    #                  self.obs_scales.dof_pos,
+    #                 self.simulator.dof_vel * self.obs_scales.dof_vel,
+    #                 self.actions,
+    #                 self.last_actions,
+    #                 self.simulator._friction_values,        # 1
+    #                 self.simulator._added_base_mass,        # 1
+    #                 self.simulator._base_com_bias,          # 3
+    #                 self.simulator._rand_push_vels[:, :2],  # 2
+    #             ),
+    #             dim=-1,
+    #         )
+    #         # add perceptive inputs if not blind
+    #         if self.cfg.terrain.measure_heights:
+    #             heights = torch.clip(self.simulator.base_pos[:, 2].unsqueeze(
+    #                 1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
+    #             self.privileged_obs_buf = torch.cat((self.privileged_obs_buf, heights), dim=-1)

@@ -245,7 +245,7 @@ class GO2SysID(LeggedRobot):
         self.extras = {}
         self.noise_scale_vec = self._get_noise_scale_vec()
         self.forward_vec = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+            (self.num_envs, 3), device=self.device, dtype=torch.float
         )
         self.forward_vec[:, 0] = 1.0
         self.base_init_pos = torch.tensor(
@@ -255,45 +255,45 @@ class GO2SysID(LeggedRobot):
             self.cfg.init_state.rot, device=self.device
         )
         self.base_lin_vel = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float)
+            (self.num_envs, 3), device=self.device, dtype=torch.float)
         self.base_ang_vel = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float)
+            (self.num_envs, 3), device=self.device, dtype=torch.float)
         self.projected_gravity = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float)
-        self.global_gravity = torch.tensor([0.0, 0.0, -1.0], device=self.device, dtype=gs.tc_float).repeat(
+            (self.num_envs, 3), device=self.device, dtype=torch.float)
+        self.global_gravity = torch.tensor([0.0, 0.0, -1.0], device=self.device, dtype=torch.float).repeat(
             self.num_envs, 1
         )
         self.commands = torch.zeros(
-            (self.num_envs, self.cfg.commands.num_commands), device=self.device, dtype=gs.tc_float)
+            (self.num_envs, self.cfg.commands.num_commands), device=self.device, dtype=torch.float)
         self.commands_scale = torch.tensor([self.obs_scales.lin_vel, self.obs_scales.lin_vel, self.obs_scales.ang_vel],
                                            device=self.device,
-            dtype=gs.tc_float,
+            dtype=torch.float,
                                            requires_grad=False,)
         self.actions = torch.zeros(
-            (self.num_envs, self.num_actions), device=self.device, dtype=gs.tc_float)
+            (self.num_envs, self.num_actions), device=self.device, dtype=torch.float)
         self.last_actions = torch.zeros_like(self.actions)
         self.llast_actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)  # last last actions
         self.dof_pos = torch.zeros_like(self.actions)
         self.dof_vel = torch.zeros_like(self.actions)
         self.last_dof_vel = torch.zeros_like(self.actions)
         self.base_pos = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float)
+            (self.num_envs, 3), device=self.device, dtype=torch.float)
         self.base_quat = torch.zeros(
-            (self.num_envs, 4), device=self.device, dtype=gs.tc_float)
+            (self.num_envs, 4), device=self.device, dtype=torch.float)
         self.feet_air_time = torch.zeros(
-            (self.num_envs, len(self.feet_indices)), device=self.device, dtype=gs.tc_float)
+            (self.num_envs, len(self.feet_indices)), device=self.device, dtype=torch.float)
         self.last_contacts = torch.zeros((self.num_envs, len(self.feet_indices)), device=self.device, dtype=gs.tc_int)
         self.link_contact_forces = torch.zeros(
-            (self.num_envs, self.robot.n_links, 3), device=self.device, dtype=gs.tc_float
+            (self.num_envs, self.robot.n_links, 3), device=self.device, dtype=torch.float
         )
         self.feet_pos = torch.zeros(
-            (self.num_envs, len(self.feet_indices), 3), device=self.device, dtype=gs.tc_float
+            (self.num_envs, len(self.feet_indices), 3), device=self.device, dtype=torch.float
         )
         self.feet_vel = torch.zeros(
-            (self.num_envs, len(self.feet_indices), 3), device=self.device, dtype=gs.tc_float
+            (self.num_envs, len(self.feet_indices), 3), device=self.device, dtype=torch.float
         )
         self.continuous_push = torch.zeros(
-            (self.num_envs, 3), device=self.device, dtype=gs.tc_float
+            (self.num_envs, 3), device=self.device, dtype=torch.float
         )
         self.env_identities = torch.arange(
             self.num_envs,
@@ -303,7 +303,7 @@ class GO2SysID(LeggedRobot):
         self.terrain_heights = torch.zeros(
             (self.num_envs,),
             device=self.device,
-            dtype=gs.tc_float,
+            dtype=torch.float,
         )
         if self.cfg.terrain.measure_heights:
             self.height_points = self._init_height_points()
@@ -320,7 +320,7 @@ class GO2SysID(LeggedRobot):
             [self.cfg.init_state.default_joint_angles[name]
                 for name in self.cfg.asset.dof_names],
             device=self.device,
-            dtype=gs.tc_float,
+            dtype=torch.float,
         )
         # PD control
         stiffness = self.cfg.control.stiffness
