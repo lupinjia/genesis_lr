@@ -4,7 +4,7 @@ class GO2Cfg( LeggedRobotCfg ):
     
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
-        num_observations = 48 # 48 for only sim, 45 for deployment
+        num_observations = 45 # 48 for only sim, 45 for deployment
         num_privileged_obs = None
         num_actions = 12
         env_spacing = 2.0
@@ -135,6 +135,6 @@ class GO2CfgPPO( LeggedRobotCfgPPO ):
         run_name = 'with_lin'
         experiment_name = 'go2'
         save_interval = 200
-        load_run = "Sep04_19-36-42_with_lin"
+        load_run = "Sep04_19-20-56_wo_lin"
         checkpoint = -1
         max_iterations = 1000
