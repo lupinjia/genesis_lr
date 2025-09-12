@@ -11,7 +11,7 @@ class GO2WTWCfg(LeggedRobotCfg):
         c_frame_stack = 5  # critic frame stack
         num_single_obs = 57
         num_observations = int(num_single_obs * frame_stack)
-        single_num_privileged_obs = 102
+        single_num_privileged_obs = num_single_obs + 45
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
         env_spacing = 1.0
 
@@ -53,21 +53,21 @@ class GO2WTWCfg(LeggedRobotCfg):
         penalize_contacts_on = ["thigh", "calf"]
         terminate_after_contacts_on = ["base"]
         # For Genesis
-        dof_names = [        # specify the sequence of actions, keep consistent with IsaacGym
-            'FL_hip_joint',
-            'FL_thigh_joint',
-            'FL_calf_joint',
-            'FR_hip_joint',
-            'FR_thigh_joint',
-            'FR_calf_joint',
-            'RL_hip_joint',
-            'RL_thigh_joint',
-            'RL_calf_joint',
-            'RR_hip_joint',
-            'RR_thigh_joint',
-            'RR_calf_joint',]
+        dof_names = [           # align with the real robot
+            "FR_hip_joint",
+            "FR_thigh_joint",
+            "FR_calf_joint",
+            "FL_hip_joint",
+            "FL_thigh_joint",
+            "FL_calf_joint",
+            "RR_hip_joint",
+            "RR_thigh_joint",
+            "RR_calf_joint",
+            "RL_hip_joint",
+            "RL_thigh_joint",
+            "RL_calf_joint"
+        ]
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
-        self_collisions_gs = True
         # For IsaacGym
         flip_visual_attachments = False # Some .obj meshes must be flipped from y-up to z-up
 
@@ -88,8 +88,8 @@ class GO2WTWCfg(LeggedRobotCfg):
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
             tracking_base_height = 0.6
-            orientation = 0.6
-            foot_clearance = 0.6
+            tracking_orientation = 0.6
+            foot_clearance = 0.8
             quad_periodic_gait = 1.0
             # smooth
             lin_vel_z = -0.5
@@ -114,7 +114,7 @@ class GO2WTWCfg(LeggedRobotCfg):
             theta_rr_list = [0.0, 0.5, 0.0]
         
         class behavior_params_range:
-            resampling_time = 6.0
+            resampling_time = 5.0
             gait_period_range = [0.3, 0.6]
             foot_clearance_target_range = [0.03, 0.12]
             base_height_target_range = [0.2, 0.36]
@@ -125,7 +125,7 @@ class GO2WTWCfg(LeggedRobotCfg):
         max_curriculum = 1.
         # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
         num_commands = 4
-        resampling_time = 10.  # time before command are changed[s]
+        resampling_time = 8.  # time before command are changed[s]
         heading_command = True  # if true: compute ang vel command from heading error
 
         class ranges(LeggedRobotCfg.commands.ranges):
@@ -142,7 +142,7 @@ class GO2WTWCfg(LeggedRobotCfg):
         added_mass_range = [-1., 1.]
         push_robots = enable
         push_interval_s = 15
-        max_push_vel_xy = 1.
+        max_push_vel_xy = 1.0
         randomize_com_displacement = enable
         com_displacement_range = [-0.03, 0.03]
         randomize_ctrl_delay = False
@@ -156,10 +156,6 @@ class GO2WTWCfg(LeggedRobotCfg):
         joint_stiffness_range = [0.01, 0.02]
         randomize_joint_damping = enable
         joint_damping_range = [0.25, 0.3]
-
-    class normalization(LeggedRobotCfg.normalization):
-        clip_observations = 20.
-        clip_actions = 10.
     
     class noise(LeggedRobotCfg.noise):
         class noise_scales(LeggedRobotCfg.noise.noise_scales):
@@ -171,7 +167,7 @@ class GO2WTWCfg(LeggedRobotCfg):
             height_measurements = 0.1
 
 class GO2WTWCfgPPO(LeggedRobotCfgPPO):
-    seed = 0
+    seed = 1
     runner_class_name = "OnPolicyRunner"
 
     class algorithm(LeggedRobotCfgPPO.algorithm):
@@ -181,6 +177,6 @@ class GO2WTWCfgPPO(LeggedRobotCfgPPO):
         run_name = 'step_gait'
         experiment_name = 'go2_wtw'
         save_interval = 500
-        load_run = "Aug30_12-04-17_smooth_gait"
+        load_run = "Sep11_23-28-50_step_gait"
         checkpoint = -1
-        max_iterations = 4000
+        max_iterations = 7000

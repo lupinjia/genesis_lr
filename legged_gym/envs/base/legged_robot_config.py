@@ -188,7 +188,7 @@ class LeggedRobotCfg(BaseConfig):
         dt =  0.005
         substeps = 1
         # For Genesis
-        max_collision_pairs = 100  # More collision pairs will occupy more GPU memory
+        max_collision_pairs = 100  # More collision pairs will occupy more GPU memory and slow down the simulation
         # For IsaacGym
         gravity = [0., 0. ,-9.81]  # [m/s^2]
         up_axis = 1  # 0 is y, 1 is z

@@ -29,11 +29,11 @@ def play(args):
     env_cfg.terrain.curriculum = False
     env_cfg.terrain.selected = False
     env_cfg.noise.add_noise = True
-    env_cfg.domain_rand.enable = False
+    env_cfg.domain_rand.enable = True
     env_cfg.asset.fix_base_link = False
     env_cfg.rewards.behavior_params_range.gait_period_range = [0.5, 0.5]
     env_cfg.rewards.behavior_params_range.base_height_target_range = [0.35, 0.35]
-    env_cfg.rewards.behavior_params_range.foot_clearance_target_range = [0.12, 0.12]
+    env_cfg.rewards.behavior_params_range.foot_clearance_target_range = [0.03, 0.03]
     env_cfg.rewards.behavior_params_range.pitch_target_range = [0.0, 0.0]
     env_cfg.rewards.periodic_reward_framework.theta_fl_list = [0.0]
     env_cfg.rewards.periodic_reward_framework.theta_fr_list = [0.5]
@@ -71,11 +71,11 @@ def play(args):
         actions = policy(obs.detach())
         obs, _, rews, dones, infos = env.step(actions.detach())
 
-        print(f"base height: {env.base_pos[robot_index, 2].item()}")
-        print(f"foot height: {env.feet_pos[robot_index, :, 2]}")
+        # print(f"base height: {env.simulator.base_pos[robot_index, 2].item()}")
+        # print(f"foot height: {env.simulator.feet_pos[robot_index, :, 2]}")
         if FOLLOW_ROBOT:
             # refresh where camera looks at(robot 0 base)
-            camera_lookat_follow = env.base_pos[robot_index, :].cpu().numpy()
+            camera_lookat_follow = env.simulator.base_pos[robot_index, :].cpu().numpy()
             # refresh camera's position
             camera_position_follow = camera_lookat_follow - camera_deviation_follow
             env.set_camera(camera_position_follow, camera_lookat_follow)
@@ -87,17 +87,17 @@ def play(args):
                     'command_x': env.commands[robot_index, 0].item(),
                     'command_y': env.commands[robot_index, 1].item(),
                     'command_yaw': env.commands[robot_index, 2].item(),
-                    'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
-                    'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
-                    'base_vel_yaw': env.base_ang_vel[robot_index, 2].item(),
+                    'base_vel_x': env.simulator.base_lin_vel[robot_index, 0].item(),
+                    'base_vel_y': env.simulator.base_lin_vel[robot_index, 1].item(),
+                    'base_vel_yaw': env.simulator.base_ang_vel[robot_index, 2].item(),
                     'exp_C_frc_fl': env.exp_C_frc_fl[robot_index, 0].item(),
                     'exp_C_frc_fr': env.exp_C_frc_fr[robot_index, 0].item(),
                     'exp_C_frc_rl': env.exp_C_frc_rl[robot_index, 0].item(),
                     'exp_C_frc_rr': env.exp_C_frc_rr[robot_index, 0].item(),
-                    'contact_forces_fl': env.link_contact_forces[robot_index, env.foot_index_fl, 2].cpu().numpy(),
-                    'contact_forces_fr': env.link_contact_forces[robot_index, env.foot_index_fr, 2].cpu().numpy(),
-                    'contact_forces_rl': env.link_contact_forces[robot_index, env.foot_index_rl, 2].cpu().numpy(),
-                    'contact_forces_rr': env.link_contact_forces[robot_index, env.foot_index_rr, 2].cpu().numpy(),
+                    'contact_forces_fl': env.simulator.link_contact_forces[robot_index, env.simulator.feet_indices[0], 2].cpu().numpy(),
+                    'contact_forces_fr': env.simulator.link_contact_forces[robot_index, env.simulator.feet_indices[1], 2].cpu().numpy(),
+                    'contact_forces_rl': env.simulator.link_contact_forces[robot_index, env.simulator.feet_indices[2], 2].cpu().numpy(),
+                    'contact_forces_rr': env.simulator.link_contact_forces[robot_index, env.simulator.feet_indices[3], 2].cpu().numpy(),
                 }
             )
         elif i==stop_state_log:

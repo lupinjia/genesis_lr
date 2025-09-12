@@ -47,21 +47,21 @@ class GO2Cfg( LeggedRobotCfg ):
         penalize_contacts_on = ["thigh", "calf"]
         terminate_after_contacts_on = ["base"]
         # For Genesis
-        dof_names = [        # specify the sequence of actions, keep consistent with IsaacGym
-            'FL_hip_joint',
-            'FL_thigh_joint',
-            'FL_calf_joint',
-            'FR_hip_joint',
-            'FR_thigh_joint',
-            'FR_calf_joint',
-            'RL_hip_joint',
-            'RL_thigh_joint',
-            'RL_calf_joint',
-            'RR_hip_joint',
-            'RR_thigh_joint',
-            'RR_calf_joint',]
+        dof_names = [           # align with the real robot
+            "FR_hip_joint",
+            "FR_thigh_joint",
+            "FR_calf_joint",
+            "FL_hip_joint",
+            "FL_thigh_joint",
+            "FL_calf_joint",
+            "RR_hip_joint",
+            "RR_thigh_joint",
+            "RR_calf_joint",
+            "RL_hip_joint",
+            "RL_thigh_joint",
+            "RL_calf_joint"
+        ]
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
-        self_collisions_gs = True
         # For IsaacGym
         flip_visual_attachments = False # Some .obj meshes must be flipped from y-up to z-up
   
@@ -137,4 +137,4 @@ class GO2CfgPPO( LeggedRobotCfgPPO ):
         save_interval = 200
         load_run = "Sep04_19-20-56_wo_lin"
         checkpoint = -1
-        max_iterations = 1000
+        max_iterations = 1400

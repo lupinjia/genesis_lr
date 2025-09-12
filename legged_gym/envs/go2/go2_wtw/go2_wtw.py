@@ -70,8 +70,8 @@ class GO2WTW(LeggedRobot):
 
         if self.num_privileged_obs is not None:  # critic_obs, no noise
             self.privileged_obs_buf = torch.cat((
-                self.simulator.base_lin_vel * self.obs_scales.lin_vel,   # v_t     3
                 obs_buf,                                       # all above
+                self.simulator.base_lin_vel * self.obs_scales.lin_vel,   # v_t     3
                 # domain randomization parameters
                 self.simulator._rand_push_vels[:, :2],                   # 2
                 self.simulator._added_base_mass,                         # 1
@@ -118,9 +118,10 @@ class GO2WTW(LeggedRobot):
         # avoid updating command curriculum at each step since the maximum command is common to all envs
         if self.cfg.commands.curriculum and (self.common_step_counter % self.max_episode_length ==0):
             self.update_command_curriculum(env_ids)
-        self._resample_behavior_params(env_ids)
+            self._update_behavior_param_curriculum(env_ids)
 
         # reset robot states
+        self._resample_behavior_params(env_ids)
         self._resample_commands(env_ids)
         self._reset_dofs(env_ids)
         self.simulator.reset_idx(env_ids)
@@ -153,11 +154,11 @@ class GO2WTW(LeggedRobot):
             self.extras["time_outs"] = self.time_out_buf
 
         # Behavior parameters
-        self.extras["episode"]["gait_period"] = torch.mean(self.gait_period[:])
-        self.extras["episode"]["base_height_target"] = torch.mean(self.base_height_target[:])
-        self.extras["episode"]["foot_clearance_target"] = torch.mean(self.foot_clearance_target[:])
-        self.extras["episode"]["pitch_target"] = torch.mean(self.pitch_target[:])
-        self.extras["episode"]["theta_fr"] = torch.mean(self.theta[:, 1])
+        self.extras["episode"]["gait_period_max"] = self.gait_period_range[1]
+        self.extras["episode"]["base_height_target_max"] = self.base_height_target_range[1]
+        self.extras["episode"]["foot_clearance_target_max"] = self.foot_clearance_target_range[1]
+        self.extras["episode"]["pitch_target_max"] = self.pitch_target_range[1]
+        self.extras["episode"]["num_gaits"] = self.num_gaits
         
         # reset action queue and delay
         if self.cfg.domain_rand.randomize_ctrl_delay:
@@ -175,46 +176,63 @@ class GO2WTW(LeggedRobot):
     def _resample_behavior_params(self, env_ids):
         if len(env_ids) == 0:
             return
-        # resample gait
-        if torch.mean(self.episode_sums["quad_periodic_gait"][env_ids]) / \
-            self.max_episode_length > 0.5 * self.reward_scales["quad_periodic_gait"]: # 0.8 for step gait, 0.5 for smooth gait
-            # gait period
-            self.gait_period[env_ids, :] = torch_rand_float(
-                self.cfg.rewards.behavior_params_range.gait_period_range[0],
-                self.cfg.rewards.behavior_params_range.gait_period_range[1],
-                (len(env_ids), 1), device=self.device
-            )
-            # Theta, gait offset
-            selected_idx = torch.randint(0, len(self.cfg.rewards.periodic_reward_framework.theta_fl_list), 
+        self.gait_period[env_ids, :] = torch_rand_float(
+            self.gait_period_range[0],
+            self.gait_period_range[1],
+            (len(env_ids), 1), device=self.device
+        )
+        self.base_height_target[env_ids, :] = torch_rand_float(
+            self.base_height_target_range[0],
+            self.base_height_target_range[1],
+            (len(env_ids), 1), device=self.device
+        )
+        self.foot_clearance_target[env_ids, :] = torch_rand_float(
+            self.foot_clearance_target_range[0],
+            self.foot_clearance_target_range[1],
+            (len(env_ids), 1), device=self.device
+        )
+        self.pitch_target[env_ids, :] = torch_rand_float(
+            self.pitch_target_range[0],
+            self.pitch_target_range[1],
+            (len(env_ids), 1), device=self.device
+        )
+        
+        # Theta, gait offset
+        selected_idx = torch.randint(0, self.num_gaits, 
                                          (1,), device=self.device)
-            self.theta[env_ids, 0] = self.cfg.rewards.periodic_reward_framework.theta_fl_list[selected_idx]
-            self.theta[env_ids, 1] = self.cfg.rewards.periodic_reward_framework.theta_fr_list[selected_idx]
-            self.theta[env_ids, 2] = self.cfg.rewards.periodic_reward_framework.theta_rl_list[selected_idx]
-            self.theta[env_ids, 3] = self.cfg.rewards.periodic_reward_framework.theta_rr_list[selected_idx]
+        self.theta[env_ids, 0] = self.cfg.rewards.periodic_reward_framework.theta_fl_list[selected_idx]
+        self.theta[env_ids, 1] = self.cfg.rewards.periodic_reward_framework.theta_fr_list[selected_idx]
+        self.theta[env_ids, 2] = self.cfg.rewards.periodic_reward_framework.theta_rl_list[selected_idx]
+        self.theta[env_ids, 3] = self.cfg.rewards.periodic_reward_framework.theta_rr_list[selected_idx]
+
+    def _update_behavior_param_curriculum(self, env_ids):
+        if len(env_ids) == 0:
+            return
+        # Widen the behavior param range according to reward values
+        if torch.mean(self.episode_sums["quad_periodic_gait"][env_ids]) / \
+            self.max_episode_length > 0.8 * self.reward_scales["quad_periodic_gait"]: # 0.8 for step gait, 0.5 for smooth gait
+            # gait period
+            self.gait_period_range[0] = max(self.gait_period_range[0] - 0.05, self.gait_period_min)
+            self.gait_period_range[1] = min(self.gait_period_range[1] + 0.05, self.gait_period_max)
+            # gait number
+            self.num_gaits = min(self.num_gaits + 1, self.num_gait_max)
 
         if torch.mean(self.episode_sums["tracking_base_height"][env_ids]) / \
             self.max_episode_length > 0.9 * self.reward_scales["tracking_base_height"]:
-            self.base_height_target[env_ids, :] = torch_rand_float(
-                self.cfg.rewards.behavior_params_range.base_height_target_range[0],
-                self.cfg.rewards.behavior_params_range.base_height_target_range[1],
-                (len(env_ids), 1), device=self.device
-            )
+            self.base_height_target_range[0] = max(self.base_height_target_range[0] - 0.02, self.base_height_target_min)
+            self.base_height_target_range[1] = min(self.base_height_target_range[1] + 0.02, self.base_height_target_max)
 
         if torch.mean(self.episode_sums["foot_clearance"][env_ids]) / \
-            self.max_episode_length > 0.75 * self.reward_scales["foot_clearance"]:
-            self.foot_clearance_target[env_ids, :] = torch_rand_float(
-                self.cfg.rewards.behavior_params_range.foot_clearance_target_range[0],
-                self.cfg.rewards.behavior_params_range.foot_clearance_target_range[1],
-                (len(env_ids), 1), device=self.device
-            )
+            self.max_episode_length > 0.8 * self.reward_scales["foot_clearance"]:
+            self.foot_clearance_target_range[0] = max(self.foot_clearance_target_range[0] - 0.01, 
+                                                      self.foot_clearance_target_min)
+            self.foot_clearance_target_range[1] = min(self.foot_clearance_target_range[1] + 0.01, 
+                                                      self.foot_clearance_target_max)
         
-        if torch.mean(self.episode_sums["orientation"][env_ids]) / \
-            self.max_episode_length > 0.75 * self.reward_scales["orientation"]:
-            self.pitch_target[env_ids, :] = torch_rand_float(
-                self.cfg.rewards.behavior_params_range.pitch_target_range[0],
-                self.cfg.rewards.behavior_params_range.pitch_target_range[1],
-                (len(env_ids), 1), device=self.device
-            )
+        if torch.mean(self.episode_sums["tracking_orientation"][env_ids]) / \
+            self.max_episode_length > 0.9 * self.reward_scales["tracking_orientation"]:
+            self.pitch_target_range[0] = max(self.pitch_target_range[0] - 0.05, self.pitch_target_min)
+            self.pitch_target_range[1] = min(self.pitch_target_range[1] + 0.05, self.pitch_target_max)
 
     # ------------- Callbacks --------------
     
@@ -296,7 +314,7 @@ class GO2WTW(LeggedRobot):
         self.gait_time = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
         self.phi = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
         self.gait_period = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
-        self.gait_period[:] = self.cfg.rewards.behavior_params_range.gait_period_range[1]
+        self.gait_period[:] = self.gait_period_range[0]
         self.clock_input = torch.zeros(
             self.num_envs,
             4,
@@ -310,15 +328,15 @@ class GO2WTW(LeggedRobot):
         self.base_height_target = torch.zeros(
             self.num_envs, 1, dtype=torch.float, device=self.device
         )
-        self.base_height_target[:, :] = self.cfg.rewards.behavior_params_range.base_height_target_range[1]
+        self.base_height_target[:, :] = self.base_height_target_range[0]
         self.foot_clearance_target = torch.zeros(
             self.num_envs, 1, dtype=torch.float, device=self.device
         )
-        self.foot_clearance_target[:, :] = self.cfg.rewards.behavior_params_range.foot_clearance_target_range[0]
+        self.foot_clearance_target[:, :] = self.foot_clearance_target_range[0]
         self.pitch_target = torch.zeros(
             self.num_envs, 1, dtype=torch.float, device=self.device
         )
-        self.pitch_target[:, :] = self.cfg.rewards.behavior_params_range.pitch_target_range[1]
+        self.pitch_target[:, :] = self.pitch_target_range[0]
             
     def _parse_cfg(self, cfg):
         super()._parse_cfg(cfg)
@@ -327,7 +345,22 @@ class GO2WTW(LeggedRobot):
         self.gait_function_type = self.cfg.rewards.periodic_reward_framework.gait_function_type
         self.a_swing = 0.0
         self.b_stance = 2 * torch.pi
-    
+        # Process behavior param range, specify to medium value initially
+        self.gait_period_min = self.cfg.rewards.behavior_params_range.gait_period_range[0]
+        self.gait_period_max = self.cfg.rewards.behavior_params_range.gait_period_range[1]
+        self.gait_period_range = [(self.gait_period_min + self.gait_period_max) / 2] * 2
+        self.foot_clearance_target_min = self.cfg.rewards.behavior_params_range.foot_clearance_target_range[0]
+        self.foot_clearance_target_max = self.cfg.rewards.behavior_params_range.foot_clearance_target_range[1]
+        self.foot_clearance_target_range = [(self.foot_clearance_target_min + self.foot_clearance_target_max) / 2] * 2
+        self.base_height_target_min = self.cfg.rewards.behavior_params_range.base_height_target_range[0]
+        self.base_height_target_max = self.cfg.rewards.behavior_params_range.base_height_target_range[1]
+        self.base_height_target_range = [(self.base_height_target_min + self.base_height_target_max) / 2] * 2
+        self.pitch_target_min = self.cfg.rewards.behavior_params_range.pitch_target_range[0]
+        self.pitch_target_max = self.cfg.rewards.behavior_params_range.pitch_target_range[1]
+        self.pitch_target_range = [(self.pitch_target_min + self.pitch_target_max) / 2] * 2
+        self.num_gaits = 1     # start from one gait initially
+        self.num_gait_max = len(self.cfg.rewards.periodic_reward_framework.theta_fl_list)
+        
     def _uniped_periodic_gait(self, foot_type):
         # q_frc and q_spd
         if foot_type == "FL":
