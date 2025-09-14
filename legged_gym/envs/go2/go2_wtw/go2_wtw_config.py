@@ -9,9 +9,9 @@ class GO2WTWCfg(LeggedRobotCfg):
         # observation history
         frame_stack = 5   # policy frame stack
         c_frame_stack = 5  # critic frame stack
-        num_single_obs = 57
+        num_single_obs = 61
         num_observations = int(num_single_obs * frame_stack)
-        single_num_privileged_obs = num_single_obs + 45
+        single_num_privileged_obs = num_single_obs + 41
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
         env_spacing = 1.0
 
@@ -90,7 +90,7 @@ class GO2WTWCfg(LeggedRobotCfg):
             tracking_base_height = 0.6
             tracking_orientation = 0.6
             foot_clearance = 0.8
-            quad_periodic_gait = 1.0
+            quad_periodic_gait = 1.5
             # smooth
             lin_vel_z = -0.5
             ang_vel_xy = -0.05
@@ -108,10 +108,11 @@ class GO2WTWCfg(LeggedRobotCfg):
             kappa = 20
             # start of swing is all the same
             b_swing = 0.5
+            # trot, bound, pace
             theta_fl_list = [0.0, 0.0, 0.5]  # front left leg
             theta_fr_list = [0.5, 0.0, 0.0]
-            theta_rl_list = [0.5, 0.5, 0.5]
-            theta_rr_list = [0.0, 0.5, 0.0]
+            theta_rl_list = [0.5, 0.0, 0.5]
+            theta_rr_list = [0.0, 0.0, 0.0]
         
         class behavior_params_range:
             resampling_time = 5.0
@@ -145,8 +146,6 @@ class GO2WTWCfg(LeggedRobotCfg):
         max_push_vel_xy = 1.0
         randomize_com_displacement = enable
         com_displacement_range = [-0.03, 0.03]
-        randomize_ctrl_delay = False
-        ctrl_delay_step_range = [0, 1]
         randomize_pd_gain = enable
         kp_range = [0.8, 1.2]
         kd_range = [0.8, 1.2]
@@ -156,6 +155,8 @@ class GO2WTWCfg(LeggedRobotCfg):
         joint_stiffness_range = [0.01, 0.02]
         randomize_joint_damping = enable
         joint_damping_range = [0.25, 0.3]
+        randomize_ctrl_delay = False
+        ctrl_delay_step_range = [0, 1]
     
     class noise(LeggedRobotCfg.noise):
         class noise_scales(LeggedRobotCfg.noise.noise_scales):
@@ -177,6 +178,6 @@ class GO2WTWCfgPPO(LeggedRobotCfgPPO):
         run_name = 'step_gait'
         experiment_name = 'go2_wtw'
         save_interval = 500
-        load_run = "Sep11_23-28-50_step_gait"
+        load_run = "Sep12_14-13-43_step_gait"
         checkpoint = -1
         max_iterations = 7000

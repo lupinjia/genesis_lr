@@ -1,4 +1,4 @@
-# Deploy to Real Robot
+# ⬇️Deploy to Real Robot
 
 In last subsection, we have briefly learned how to start a training session and play the resultant policy in the simulator. The next question is, how to deploy the policy to the real robot, interacting with the dynamics in the real world? 
 
@@ -35,9 +35,17 @@ To see the reward curves and loss curves, you can utilize tensorboard or wandb. 
 
 Before deploying to the real robot, it's better to deploy the policy to another simulator. In this way, you can test your policy's robustness and avoid potential collapse on the real robot. To use this feature, you need to first install go2_deploy following the instructions in [Installation](installation.md).
 
-After executing `play.py` with `EXPORT_POLICY=True`, you will find a folder named `exported` in the specified `load_run` directory. Under the `policies` directory, you will find a JIT script file which can be deployed.
+After executing `play.py` with `EXPORT_POLICY=True`, you will find a folder named `exported` in the specified `load_run` directory. Under this directory, you will find a JIT script file (.pt) which can be deployed.
 
+We have provided a `SimpleRLController` in [go2_deploy](https://github.com/lupinjia/go2_deploy/tree/main) for you to deploy this simplest control policy, please refer to it.
 
+Here is the demo video for the locomotion:
+
+<video preload="auto" controls="True" width="100%">
+<source src="https://github.com/lupinjia/genesis_lr/tree/main/docs/source/_static/videos/simple_rl_demo.mp4" type="video/mp4">
+</video>
+
+You can see that this quadruped robot can walk as our desired velocity commands, which are specified through the joystick. But this policy is just a simplest version, it struggles with external disturbances and complex terrains.
 
 ## References
 

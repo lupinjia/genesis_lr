@@ -1,8 +1,0 @@
-isaacgym.egg==info
-matplotlib==3.7.5
-numpy==1.24.1
-pandas==2.0.3
-scipy==1.16.1
-torch==2.4.1+cu121
-tqdm==4.67.1
-xlsxwriter==3.2.5

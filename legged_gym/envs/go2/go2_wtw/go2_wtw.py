@@ -84,10 +84,10 @@ class GO2WTW(LeggedRobot):
                 self.simulator._joint_stiffness,                         # 1
                 self.simulator._joint_damping,                           # 1
                 # privileged infos
-                self.exp_C_frc_fl, self.exp_C_spd_fl,
-                self.exp_C_frc_fr, self.exp_C_spd_fr,
-                self.exp_C_frc_rl, self.exp_C_spd_rl,
-                self.exp_C_frc_rr, self.exp_C_spd_rr,          # 8
+                self.exp_C_frc_fl,
+                self.exp_C_frc_fr, 
+                self.exp_C_frc_rl, 
+                self.exp_C_frc_rr,           # 4
             ), dim=-1)
 
         # add perceptive inputs if not blind
@@ -241,6 +241,7 @@ class GO2WTW(LeggedRobot):
         """
         for i in range(4):
             self.clock_input[:, i] = torch.sin(2 * torch.pi * (self.phi + self.theta[:, i].unsqueeze(1))).squeeze(-1)
+            self.clock_input[:, i + 4] = torch.cos(2 * torch.pi * (self.phi + self.theta[:, i].unsqueeze(1))).squeeze(-1)
     
     def _post_physics_step_callback(self):
         super()._post_physics_step_callback()
@@ -317,7 +318,7 @@ class GO2WTW(LeggedRobot):
         self.gait_period[:] = self.gait_period_range[0]
         self.clock_input = torch.zeros(
             self.num_envs,
-            4,
+            8,
             dtype=torch.float,
             device=self.device,
         )
