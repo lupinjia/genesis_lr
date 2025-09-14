@@ -42,7 +42,7 @@ We have provided a `SimpleRLController` in [go2_deploy](https://github.com/lupin
 Here is the demo video for the locomotion:
 
 <video preload="auto" controls="True" width="100%">
-<source src="https://github.com/lupinjia/genesis_lr/tree/main/docs/source/_static/videos/simple_rl_demo.mp4" type="video/mp4">
+<source src="https://github.com/lupinjia/genesis_lr/raw/main/docs/source/_static/videos/simple_rl_demo.mp4" type="video/mp4">
 </video>
 
 You can see that this quadruped robot can walk as our desired velocity commands, which are specified through the joystick. But this policy is just a simplest version, it struggles with external disturbances and complex terrains.
