@@ -14,8 +14,9 @@ getting_started/code_architecture
 :caption: Blind Locomotion
 :maxdepth: 1
 
-blind_locomotion/simplest_implementation
+blind_locomotion/walk_these_ways
 blind_locomotion/teacher_student
 blind_locomotion/explicit_estimator
+blind_locomotion/sim2real_skills
 ```
 

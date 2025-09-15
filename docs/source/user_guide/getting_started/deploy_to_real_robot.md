@@ -37,7 +37,17 @@ Before deploying to the real robot, it's better to deploy the policy to another 
 
 After executing `play.py` with `EXPORT_POLICY=True`, you will find a folder named `exported` in the specified `load_run` directory. Under this directory, you will find a JIT script file (.pt) which can be deployed.
 
-We have provided a `SimpleRLController` in [go2_deploy](https://github.com/lupinjia/go2_deploy/tree/main) for you to deploy this simplest control policy, please refer to it.
+Essentially, what the deployment code does is to align the input and output of the control policy. For input, you need to put the feedback information just the same as your training code. For output, you need to align the response of the real electric motor with that in the simulation.
+
+We have provided a `SimpleRLController` in [go2_deploy](https://github.com/lupinjia/go2_deploy/tree/main) for you to deploy this simplest control policy, execute the following command after compiling:
+
+```bash
+# Under go2_deploy/build
+./go2_deploy simple_rl
+
+# Under go2_deploy/unitree_mujoco/simulate/build
+./unitree_mujoco
+```
 
 Here is the demo video for the locomotion:
 
@@ -46,6 +56,22 @@ Here is the demo video for the locomotion:
 </video>
 
 You can see that this quadruped robot can walk as our desired velocity commands, which are specified through the joystick. But this policy is just a simplest version, it struggles with external disturbances and complex terrains.
+
+## Deploy to Real Robot
+
+To deploy the a real go2 robot, you need to modify the network interface for the program. Check you ethernet interface through `ifconfig`:
+
+```{figure} ../../_static/images/ifconfig_output.jpeg
+```
+
+We can see that the ethernet interface of this PC is `enp4s0`. Then we can connect this PC with `go2` through ethernet and execute: 
+
+```bash
+./go2_deploy simple_rl enp4s0
+```
+
+You will see the robot locomotes in a way that is not so different from the simulation.
+
 
 ## References
 

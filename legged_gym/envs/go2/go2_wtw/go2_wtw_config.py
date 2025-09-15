@@ -108,11 +108,11 @@ class GO2WTWCfg(LeggedRobotCfg):
             kappa = 20
             # start of swing is all the same
             b_swing = 0.5
-            # trot, bound, pace
-            theta_fl_list = [0.0, 0.0, 0.5]  # front left leg
-            theta_fr_list = [0.5, 0.0, 0.0]
-            theta_rl_list = [0.5, 0.0, 0.5]
-            theta_rr_list = [0.0, 0.0, 0.0]
+            # trot, pronk, pace, bound
+            theta_fl_list = [0.0, 0.0, 0.5, 0.0]  # front left leg
+            theta_fr_list = [0.5, 0.0, 0.0, 0.0]
+            theta_rl_list = [0.5, 0.0, 0.5, 0.5]
+            theta_rr_list = [0.0, 0.0, 0.0, 0.5]
         
         class behavior_params_range:
             resampling_time = 5.0
@@ -178,6 +178,6 @@ class GO2WTWCfgPPO(LeggedRobotCfgPPO):
         run_name = 'step_gait'
         experiment_name = 'go2_wtw'
         save_interval = 500
-        load_run = "Sep12_14-13-43_step_gait"
+        load_run = "Sep14_21-54-06_step_gait"
         checkpoint = -1
         max_iterations = 7000

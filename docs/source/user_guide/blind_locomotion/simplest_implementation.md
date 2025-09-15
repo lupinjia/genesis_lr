@@ -1,1 +1,0 @@
-# Simplest Implementation
