@@ -48,6 +48,7 @@ class ActorCriticTS(nn.Module):
                  num_privilege_encoder_input,
                  num_history_encoder_input,
                  num_latent_dims,
+                 num_critic_obs,
                  actor_hidden_dims=[256, 256, 256],
                  critic_hidden_dims=[256, 256, 256],
                  privilege_encoder_hidden_dims=[256, 128],
@@ -64,7 +65,7 @@ class ActorCriticTS(nn.Module):
 
         mlp_input_dim_a = num_actor_obs + num_latent_dims
         # input of the critic is the concatenation of actor observation and the latent from the privilege encoder
-        mlp_input_dim_c = num_actor_obs + num_latent_dims
+        mlp_input_dim_c = num_critic_obs
 
         # Privilege encoder
         privilege_encoder_layers = []
@@ -189,12 +190,6 @@ class ActorCriticTS(nn.Module):
             ), dim=-1))
         return actions_mean
 
-    def evaluate(self, observations, privilege_observations, **kwargs):
-        # critic observation is the concatenation of actor observation and the latent from the privilege encoder
-        latent = self.privilege_encoder(privilege_observations)
-        critic_observations = torch.cat(
-            (
-            observations, latent
-            ), dim=-1)
+    def evaluate(self, critic_observations, **kwargs):
         value = self.critic(critic_observations)
         return value

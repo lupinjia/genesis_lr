@@ -33,6 +33,8 @@ import os
 from collections import deque
 import statistics
 
+import wandb
+from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 import torch
 
@@ -60,6 +62,7 @@ class TSRunner:
                                                         self.env.num_privileged_obs,
                                                         self.env.num_history_obs,
                                                         self.env.num_latent_dims,
+                                                        self.env.num_critic_obs,
                                                         **self.policy_cfg).to(self.device)
         alg_class = eval(self.cfg["algorithm_class_name"]) # PPO
         self.alg: PPO_TS = alg_class(actor_critic, device=self.device, **self.alg_cfg)
@@ -69,7 +72,7 @@ class TSRunner:
         # init storage and model
         self.alg.init_storage(self.env.num_envs, self.num_steps_per_env, 
                               [self.env.num_obs], [self.env.num_privileged_obs], 
-                              [self.env.num_history_obs], [self.env.num_actions])
+                              [self.env.num_history_obs], [self.env.num_critic_obs], [self.env.num_actions])
 
         # Log
         self.log_dir = log_dir
@@ -86,8 +89,9 @@ class TSRunner:
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.randint_like(self.env.episode_length_buf, high=int(self.env.max_episode_length))
-        obs, privileged_obs, obs_history = self.env.get_observations()
-        obs, privileged_obs, obs_history = obs.to(self.device), privileged_obs.to(self.device), obs_history.to(self.device)
+        obs, privileged_obs, obs_history, critic_obs = self.env.get_observations()
+        obs, privileged_obs, obs_history, critic_obs = obs.to(self.device), privileged_obs.to(self.device), \
+            obs_history.to(self.device), critic_obs.to(self.device)
         self.alg.actor_critic.train() # switch to train mode (for dropout for example)
 
         ep_infos = []
@@ -102,10 +106,10 @@ class TSRunner:
             # Rollout
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
-                    actions = self.alg.act(obs, privileged_obs, obs_history)
-                    obs, privileged_obs, obs_history, rewards, dones, infos = self.env.step(actions)
-                    obs, privileged_obs, obs_history, rewards, dones = obs.to(self.device), \
-                        privileged_obs.to(self.device), obs_history.to(self.device), rewards.to(self.device), dones.to(self.device)
+                    actions = self.alg.act(obs, privileged_obs, obs_history, critic_obs)
+                    obs, privileged_obs, obs_history, critic_obs, rewards, dones, infos = self.env.step(actions)
+                    obs, privileged_obs, obs_history, rewards, dones, critic_obs = obs.to(self.device), \
+                        privileged_obs.to(self.device), obs_history.to(self.device), rewards.to(self.device), dones.to(self.device), critic_obs.to(self.device)
                     self.alg.process_env_step(rewards, dones, infos)
                     
                     if self.log_dir is not None:
@@ -125,7 +129,7 @@ class TSRunner:
 
                 # Learning step
                 start = stop
-                self.alg.compute_returns(obs, privileged_obs)
+                self.alg.compute_returns(critic_obs)
 
             mean_value_loss, mean_surrogate_loss, mean_encoder_loss = self.alg.update()
             stop = time.time()

@@ -52,6 +52,8 @@ class Terrain:
         self.width_per_env_pixels = int(self.env_width / cfg.horizontal_scale)
         self.length_per_env_pixels = int(self.env_length / cfg.horizontal_scale)
 
+        # row - length, X
+        # col - width,  Y
         self.border = int(cfg.border_size/self.cfg.horizontal_scale)
         self.tot_cols = int(cfg.num_cols * self.width_per_env_pixels) + 2 * self.border
         self.tot_rows = int(cfg.num_rows * self.length_per_env_pixels) + 2 * self.border
@@ -65,11 +67,11 @@ class Terrain:
             self.randomized_terrain()   
         
         self.heightsamples = self.height_field_raw
-        # if self.type=="trimesh":
-        #     self.vertices, self.triangles = terrain_utils.convert_heightfield_to_trimesh(   self.height_field_raw,
-        #                                                                                     self.cfg.horizontal_scale,
-        #                                                                                     self.cfg.vertical_scale,
-        #                                                                                     self.cfg.slope_treshold)
+        if self.type=="trimesh":
+            self.vertices, self.triangles = terrain_utils.convert_heightfield_to_trimesh(   self.height_field_raw,
+                                                                                            self.cfg.horizontal_scale,
+                                                                                            self.cfg.vertical_scale,
+                                                                                            self.cfg.slope_treshold)
     
     def randomized_terrain(self):
         for k in range(self.cfg.num_sub_terrains):
@@ -82,28 +84,29 @@ class Terrain:
             self.add_terrain_to_map(terrain, i, j)
         
     def curiculum(self):
-        for j in range(self.cfg.num_cols):
-            for i in range(self.cfg.num_rows):
-                difficulty = i / self.cfg.num_rows
-                choice = j / self.cfg.num_cols + 0.001
+        print(f"Terrain Curriculum ON")
+        for j in range(self.cfg.num_cols):     # Y
+            for i in range(self.cfg.num_rows): # X
+                difficulty = i / self.cfg.num_rows     # add difficulty along X axis, row
+                choice = j / self.cfg.num_cols + 0.001 # change terrain type along Y axis, col
 
                 terrain = self.make_terrain(choice, difficulty)
                 self.add_terrain_to_map(terrain, i, j)
 
     def selected_terrain(self):
-        for j in range(self.cfg.num_cols):
-            for i in range(self.cfg.num_rows):
-                terrain = terrain_utils.SubTerrain("terrain",
-                                width=self.width_per_env_pixels,
-                                length=self.width_per_env_pixels,
-                                vertical_scale=self.cfg.vertical_scale,
-                                horizontal_scale=self.cfg.horizontal_scale)
+        terrain_type = self.cfg.terrain_kwargs.pop('type')
+        for k in range(self.cfg.num_sub_terrains):
+            # Env coordinates in the world
+            (i, j) = np.unravel_index(k, (self.cfg.num_rows, self.cfg.num_cols))
+
+            terrain = terrain_utils.SubTerrain("terrain",
+                              width=self.width_per_env_pixels,
+                              length=self.width_per_env_pixels,
+                              vertical_scale=self.cfg.vertical_scale,
+                              horizontal_scale=self.cfg.horizontal_scale)
                 
-                # terrain = terrain_utils.pyramid_stairs_terrain(terrain, step_width=0.4, step_height=0.1, platform_size=3.)
-                # terrain_utils.pyramid_sloped_terrain(terrain, slope=0.4, platform_size=3.)
-                # terrain = terrain_utils.random_uniform_terrain(terrain, min_height=-0.05, max_height=0.05, step=0.005, downsampled_scale=0.2)
-                terrain_utils.discrete_obstacles_terrain(terrain, 0.1, 1.0, 2.0, 20, platform_size=3.)
-                self.add_terrain_to_map(terrain, i, j)
+            eval(terrain_type)(terrain, **self.cfg.terrain_kwargs)
+            self.add_terrain_to_map(terrain, i, j)
     
     def make_terrain(self, choice, difficulty):
         terrain = terrain_utils.SubTerrain(   "terrain",
@@ -112,8 +115,8 @@ class Terrain:
                                 vertical_scale=self.cfg.vertical_scale,
                                 horizontal_scale=self.cfg.horizontal_scale)
         slope = difficulty * 0.4
-        step_height = 0.05 + 0.18 * difficulty
-        discrete_obstacles_height = 0.05 + difficulty * 0.2
+        step_height = 0.05 + 0.1 * difficulty
+        discrete_obstacles_height = 0.05 + difficulty * 0.1
         stepping_stones_size = 1.5 * (1.05 - difficulty)
         stone_distance = 0.05 if difficulty==0 else 0.1
         gap_size = 1. * difficulty
