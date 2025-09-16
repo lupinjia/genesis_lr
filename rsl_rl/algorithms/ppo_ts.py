@@ -92,10 +92,10 @@ class PPO_TS:
         self.use_clipped_value_loss = use_clipped_value_loss
 
     def init_storage(self, num_envs, num_transitions_per_env, actor_obs_shape, 
-                     privileged_obs_shape, obs_history_shape, action_shape):
+                     privileged_obs_shape, obs_history_shape, critic_obs_shape, action_shape):
         self.storage = RolloutStorageTS(
             num_envs, num_transitions_per_env, actor_obs_shape, 
-            privileged_obs_shape, obs_history_shape, action_shape, self.device)
+            privileged_obs_shape, obs_history_shape, critic_obs_shape, action_shape, self.device)
 
     def test_mode(self):
         self.actor_critic.test()
@@ -103,13 +103,13 @@ class PPO_TS:
     def train_mode(self):
         self.actor_critic.train()
 
-    def act(self, obs, privileged_obs, obs_history):
+    def act(self, obs, privileged_obs, obs_history, critic_obs):
         if self.actor_critic.is_recurrent:
             self.transition.hidden_states = self.actor_critic.get_hidden_states()
         # Compute the actions and values
         self.transition.actions = self.actor_critic.act(obs, privileged_obs).detach()
         self.transition.values = self.actor_critic.evaluate(
-            obs, privileged_obs).detach()
+            critic_obs).detach()
         self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(
             self.transition.actions).detach()
         self.transition.action_mean = self.actor_critic.action_mean.detach()
@@ -118,6 +118,7 @@ class PPO_TS:
         self.transition.observations = obs
         self.transition.privileged_observations = privileged_obs
         self.transition.observation_histories = obs_history
+        self.transition.critic_observations = critic_obs
         return self.transition.actions
 
     def process_env_step(self, rewards, dones, infos):
@@ -134,8 +135,8 @@ class PPO_TS:
         self.transition.clear()
         self.actor_critic.reset(dones)
 
-    def compute_returns(self, last_obs, last_privileged_obs):
-        last_values = self.actor_critic.evaluate(last_obs, last_privileged_obs).detach()
+    def compute_returns(self, last_critic_obs):
+        last_values = self.actor_critic.evaluate(last_critic_obs).detach()
         self.storage.compute_returns(last_values, self.gamma, self.lam)
 
     def update(self):
@@ -148,7 +149,7 @@ class PPO_TS:
         else:
             generator = self.storage.mini_batch_generator(
                 self.num_mini_batches, self.num_learning_epochs)
-        for obs_batch, privileged_obs_batch, obs_histories_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, \
+        for obs_batch, privileged_obs_batch, obs_histories_batch, critic_obs_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, \
                 old_mu_batch, old_sigma_batch, hid_states_batch, masks_batch in generator:
 
             self.actor_critic.act(
@@ -156,7 +157,7 @@ class PPO_TS:
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(
                 actions_batch)
             value_batch = self.actor_critic.evaluate(
-                obs_batch, privileged_obs_batch, masks=masks_batch, hidden_states=hid_states_batch[1])
+                critic_obs_batch, masks=masks_batch, hidden_states=hid_states_batch[1])
             mu_batch = self.actor_critic.action_mean
             sigma_batch = self.actor_critic.action_std
             entropy_batch = self.actor_critic.entropy

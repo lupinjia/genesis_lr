@@ -127,19 +127,19 @@ class LeggedRobotCfg(BaseConfig):
     class rewards:
         class scales:
             termination = -0.0
-            tracking_lin_vel = 1.0
-            tracking_ang_vel = 0.5
-            lin_vel_z = -2.0
-            ang_vel_xy = -0.05
+            tracking_lin_vel = 0 # 1.0
+            tracking_ang_vel = 0 # 0.5
+            lin_vel_z = 0 # -2.0
+            ang_vel_xy = 0 # -0.05
             orientation = -0.
-            torques = -0.00001
+            torques = 0 # -0.00001
             dof_vel = -0.
-            dof_acc = -2.5e-7
+            dof_acc = 0 # -2.5e-7
             base_height = -0. 
             feet_air_time = 0 # 1.0
-            collision = -1.
+            collision = 0 # -1.
             feet_stumble = -0.0 
-            action_rate = -0.01
+            action_rate = 0 # -0.01
             stand_still = -0.
         
         only_positive_rewards = True
@@ -189,6 +189,7 @@ class LeggedRobotCfg(BaseConfig):
         substeps = 1
         # For Genesis
         max_collision_pairs = 100  # More collision pairs will occupy more GPU memory and slow down the simulation
+        IK_max_targets = 2         # Fewer IK targets will lead to fewer memory usage
         # For IsaacGym
         gravity = [0., 0. ,-9.81]  # [m/s^2]
         up_axis = 1  # 0 is y, 1 is z
