@@ -15,8 +15,8 @@ class Go2TSCfg( LeggedRobotCfg ):
         env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        mesh_type = "heightfield" # for genesis
-        # mesh_type = "trimesh"  # for isaacgym
+        # mesh_type = "heightfield" # for genesis
+        mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
         border_size = 10.0 # [m]
         curriculum = True
@@ -109,7 +109,6 @@ class Go2TSCfg( LeggedRobotCfg ):
             torques = -2.e-4
             # gait
             feet_air_time = 1.0
-            # quad_periodic_gait = 1.0
             foot_clearance = 0.5
             hip_pos = -0.5
             
@@ -168,9 +167,9 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticTS"
         algorithm_class_name = "PPO_TS"
-        run_name = 'gs'
+        run_name = 'gym'
         experiment_name = 'go2_ts'
         save_interval = 200
-        load_run = "Sep16_17-22-47_gym"
+        load_run = "Sep16_20-36-02_gym"
         checkpoint = -1
         max_iterations = 1200

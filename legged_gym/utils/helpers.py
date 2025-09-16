@@ -129,17 +129,27 @@ def get_args():
 
     return parser.parse_args()
 
-def export_policy_as_jit(actor_critic, path, prefix=None):
+def export_policy_as_jit(actor_critic, path, prefix=None, export_type=None):
     if hasattr(actor_critic, 'memory_a'):
         # assumes LSTM: TODO add GRU
         exporter = PolicyExporterLSTM(actor_critic)
         exporter.export(path)
     else: 
         os.makedirs(path, exist_ok=True)
-        path = os.path.join(path, prefix + '.pt')
-        model = copy.deepcopy(actor_critic.actor).to('cpu')
-        traced_script_module = torch.jit.script(model)
-        traced_script_module.save(path)
+        if export_type == "ts":
+            model_path = os.path.join(path, prefix + "_policy.pt")
+            model = copy.deepcopy(actor_critic.actor).to('cpu')
+            traced_script_module = torch.jit.script(model)
+            traced_script_module.save(model_path)
+            encoder_path = os.path.join(path, prefix + "_encoder.pt")
+            model = copy.deepcopy(actor_critic.history_encoder).to('cpu')
+            traced_script_module = torch.jit.script(model)
+            traced_script_module.save(encoder_path)
+        else:
+            path = os.path.join(path, prefix + '.pt')
+            model = copy.deepcopy(actor_critic.actor).to('cpu')
+            traced_script_module = torch.jit.script(model)
+            traced_script_module.save(path)
     
 def export_estimator_as_jit(estimator, path):
     os.makedirs(path, exist_ok=True)
