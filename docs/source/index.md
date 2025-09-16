@@ -15,7 +15,20 @@ genesis_lr is a training framework for robot control based on RL (Reinforcement 
     |--------|------------|----------|-----------|
     | Walk These Ways | [Walk These Ways: Tuning Robot Control for Generalization with Multiplicity of Behavior](https://arxiv.org/abs/2212.03238) | [go2_wtw](https://github.com/lupinjia/genesis_lr/blob/main/legged_gym/envs/go2/go2_wtw/) | [walk_these_ways](./user_guide/blind_locomotion/walk_these_ways.md) |
     | System Identification | [Learning Agile Bipedal Motions on a Quadrupedal Robot](https://arxiv.org/abs/2311.05818) | [go2_sysid](https://github.com/lupinjia/genesis_lr/tree/main/legged_gym/envs/go2/go2_sysid) | |
-    | Teacher-Student | [Rapid Locomotion via Reinforcement Learning](https://agility.csail.mit.edu/) | [go2_ts](https://github.com/lupinjia/genesis_lr/tree/main/legged_gym/envs/go2/go2_ts) | |
+    | One-Stage Teacher-Student | [Rapid Locomotion via Reinforcement Learning](https://agility.csail.mit.edu/) | [go2_ts](https://github.com/lupinjia/genesis_lr/tree/main/legged_gym/envs/go2/go2_ts) | |
+
+## Implemented Demos
+
+| Name  | Gensis | IsaacGym | Real Robot | Video |
+| ----- | ------ | -------- | ---------  | ----- |
+| Walk These Ways | ✅ | ✅ | ✅ | [video_link](https://www.bilibili.com/video/BV1FPedzZEdi/) |
+| Robust Terrain Traversal | ❌ | ✅ |
+
+:::{note}
+Updated 2025/09/16
+
+Currently (genesis-world v0.3.3), the heightfield terrain of Genesis will cause abnormal collision behavior. So it's not viable to train terrain traversal policies using Genesis.
+:::
 
 ```{toctree}
 :maxdepth: 1
