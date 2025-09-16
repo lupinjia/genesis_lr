@@ -178,6 +178,6 @@ class GO2WTWCfgPPO(LeggedRobotCfgPPO):
         run_name = 'step_gait'
         experiment_name = 'go2_wtw'
         save_interval = 500
-        load_run = "Sep14_21-54-06_step_gait"
+        load_run = "Sep15_09-38-49_step_gait"
         checkpoint = -1
-        max_iterations = 7000
+        max_iterations = 5000
