@@ -109,15 +109,15 @@ class GenesisSimulator(Simulator):
         # add terrain
         mesh_type = self.cfg.terrain.mesh_type
         if mesh_type == 'plane':
-            self.terrain = self.scene.add_entity(
+            self.gs_terrain = self.scene.add_entity(
                 gs.morphs.URDF(file="urdf/plane/plane.urdf", fixed=True))
         elif mesh_type == 'heightfield':
-            self.utils_terrain = Terrain(self.cfg.terrain)
+            self.terrain = Terrain(self.cfg.terrain)
             self._create_heightfield()
         elif mesh_type is not None:
             raise ValueError(
                 "Terrain mesh type not recognised. Allowed types are [None, plane, heightfield, trimesh]")
-        self.terrain.set_friction(self.cfg.terrain.static_friction)
+        self.gs_terrain.set_friction(self.cfg.terrain.static_friction)
         # specify the boundary of the heightfield
         self.terrain_x_range = torch.zeros(2, device=self.device)
         self.terrain_y_range = torch.zeros(2, device=self.device)
@@ -605,17 +605,17 @@ class GenesisSimulator(Simulator):
     def _create_heightfield(self):
         """ Adds a heightfield terrain to the simulation, sets parameters based on the cfg.
         """
-        self.terrain = self.scene.add_entity(
+        self.gs_terrain = self.scene.add_entity(
             gs.morphs.Terrain(
                 pos=(-self.cfg.terrain.border_size, - \
                      self.cfg.terrain.border_size, 0.0),
                 horizontal_scale=self.cfg.terrain.horizontal_scale,
                 vertical_scale=self.cfg.terrain.vertical_scale,
-                height_field=self.utils_terrain.height_field_raw,
+                height_field=self.terrain.height_field_raw,
             ),
         )
-        self.height_samples = torch.tensor(self.utils_terrain.heightsamples).view(
-            self.utils_terrain.tot_rows, self.utils_terrain.tot_cols).to(self.device)
+        self.height_samples = torch.tensor(self.terrain.heightsamples).view(
+            self.terrain.tot_rows, self.terrain.tot_cols).to(self.device)
 
     def _compute_torques(self, actions):
         # control_type = 'P'
@@ -645,7 +645,7 @@ class GenesisSimulator(Simulator):
                 self.num_envs/self.cfg.terrain.num_cols), rounding_mode='floor').to(torch.long)
             self.max_terrain_level = self.cfg.terrain.num_rows
             self.terrain_origins = torch.from_numpy(
-                self.utils_terrain.env_origins).to(self.device).to(torch.float)
+                self.terrain.env_origins).to(self.device).to(torch.float)
             self.env_origins[:] = self.terrain_origins[self.terrain_levels,
                                                        self.terrain_types]
         else:
@@ -814,7 +814,7 @@ class IsaacGymSimulator(Simulator):
         self.sim = self.gym.create_sim(self.sim_device_id, self.graphics_device_id, self.physics_engine, self.sim_params)
         mesh_type = self.cfg.terrain.mesh_type
         if mesh_type in ['heightfield', 'trimesh']:
-            self.terrain = Terrain(self.cfg.terrain, self.num_envs)
+            self.terrain = Terrain(self.cfg.terrain)
         if mesh_type=='plane':
             self._create_ground_plane()
         elif mesh_type=='heightfield':
@@ -823,7 +823,6 @@ class IsaacGymSimulator(Simulator):
             self._create_trimesh()
         elif mesh_type is not None:
             raise ValueError("Terrain mesh type not recognised. Allowed types are [None, plane, heightfield, trimesh]")
-        
         
     def _create_envs(self):
         """ Creates environments:
@@ -954,6 +953,7 @@ class IsaacGymSimulator(Simulator):
         self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1]
         self.base_pos = self.root_states[:, 0:3]
         self.base_quat = self.root_states[:, 3:7]
+        self.base_euler = get_euler_xyz(self.base_quat)
         self.link_contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3) # shape: num_envs, num_bodies, xyz axis
         self.feet_vel = self.rigid_body_states[:, self.feet_indices, 7:10]
         self.feet_pos = self.rigid_body_states[:, self.feet_indices, 0:3]
@@ -1010,6 +1010,7 @@ class IsaacGymSimulator(Simulator):
         # the wrapped tensor will be updated automatically once you call refresh_xxx_tensor
         self.base_pos[:] = self.root_states[:, 0:3]
         self.base_quat[:] = self.root_states[:, 3:7]
+        self.base_euler[:] = get_euler_xyz(self.base_quat)
         self.base_lin_vel[:] = quat_rotate_inverse(
             self.base_quat, self.root_states[:, 7:10])
         self.base_ang_vel[:] = quat_rotate_inverse(
@@ -1045,6 +1046,8 @@ class IsaacGymSimulator(Simulator):
             points = quat_apply_yaw(self.base_quat.repeat(
                 1, self.num_height_points), self.height_points) + (self.base_pos[:, :3]).unsqueeze(1)
 
+        # When acquiring heights, the points need to add border_size
+        # because in the height_samples, the origin of the terrain is at (border_size, border_size)
         points += self.cfg.terrain.border_size
         points = (points/self.cfg.terrain.horizontal_scale).long()
         px = points[:, :, 0].view(-1)
@@ -1058,7 +1061,60 @@ class IsaacGymSimulator(Simulator):
         heights = torch.min(heights1, heights2)
         heights = torch.min(heights, heights3)
 
-        return heights.view(self.num_envs, -1) * self.cfg.terrain.vertical_scale
+        self.measured_heights = heights.view(self.num_envs, -1) * self.cfg.terrain.vertical_scale
+    
+    def calc_terrain_info_around_feet(self):
+        """ Finds neighboring points around each foot for terrain height measurement."""
+        foot_points = self.feet_pos + self.cfg.terrain.border_size
+        foot_points = (foot_points/self.cfg.terrain.horizontal_scale).long()
+        # px and py for 4 feet, num_envs*len(feet_indices)
+        px = foot_points[:, :, 0].view(-1)
+        py = foot_points[:, :, 1].view(-1)
+        # clip to the range of height samples
+        px = torch.clip(px, 0, self.height_samples.shape[0]-2)
+        py = torch.clip(py, 0, self.height_samples.shape[1]-2)
+        # get heights around the feet, 9 points for each foot
+        heights1 = self.height_samples[px-1, py]  # [x-0.1, y]
+        heights2 = self.height_samples[px+1, py]  # [x+0.1, y]
+        heights3 = self.height_samples[px, py-1]  # [x, y-0.1]
+        heights4 = self.height_samples[px, py+1]  # [x, y+0.1]
+        heights5 = self.height_samples[px, py]    # [x, y]
+        heights6 = self.height_samples[px-1, py-1]  # [x-0.1, y-0.1]
+        heights7 = self.height_samples[px+1, py+1]  # [x+0.1, y+0.1]
+        heights8 = self.height_samples[px-1, py+1]  # [x-0.1, y+0.1]
+        heights9 = self.height_samples[px+1, py-1]  # [x+0.1, y-0.1]
+        # Calculate normal vectors around feet
+        dx = ((heights2 - heights1) / (self.cfg.terrain.horizontal_scale * 2)).view(self.num_envs, -1)
+        dy = ((heights4 - heights3) / (self.cfg.terrain.horizontal_scale * 2)).view(self.num_envs, -1)
+        for i in range(len(self.feet_indices)):
+            normal_vector = torch.cat((dx[:, i].unsqueeze(1), dy[:, i].unsqueeze(1), 
+                -1*torch.ones_like(dx[:, i].unsqueeze(1))), dim=-1).to(self.device)
+            normal_vector /= torch.norm(normal_vector, dim=-1, keepdim=True)
+            self.normal_vector_around_feet[:, i*3:i*3+3] = normal_vector[:]
+        # Calculate height around feet
+        for i in range(9):
+            self.height_around_feet[:, :, i] = eval(f'heights{i+1}').view(self.num_envs, -1)[:] * self.cfg.terrain.vertical_scale
+    
+    def draw_debug_vis(self):
+        """ Draws visualizations for dubugging (slows down simulation a lot).
+            Default behaviour: draws height measurement points
+        """
+        # draw height lines
+        if not self.terrain.cfg.measure_heights:
+            return
+        self.gym.clear_lines(self.viewer)
+        self.gym.refresh_rigid_body_state_tensor(self.sim)
+        sphere_geom = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(1, 1, 0))
+        for i in range(self.num_envs):
+            base_pos = (self.root_states[i, :3]).cpu().numpy()
+            heights = self.measured_heights[i].cpu().numpy()
+            height_points = quat_apply_yaw(self.base_quat[i].repeat(heights.shape[0]), self.height_points[i]).cpu().numpy()
+            for j in range(heights.shape[0]):
+                x = height_points[j, 0] + base_pos[0]
+                y = height_points[j, 1] + base_pos[1]
+                z = heights[j]
+                sphere_pose = gymapi.Transform(gymapi.Vec3(x, y, z), r=None)
+                gymutil.draw_lines(sphere_geom, self.gym, self.viewer, self.envs[i], sphere_pose) 
     
     def push_robots(self):
         max_vel = self.cfg.domain_rand.max_push_vel_xy
@@ -1160,27 +1216,6 @@ class IsaacGymSimulator(Simulator):
             self.env_origins[:, 0] = spacing * xx.flatten()[:self.num_envs]
             self.env_origins[:, 1] = spacing * yy.flatten()[:self.num_envs]
             self.env_origins[:, 2] = 0.
-    
-    def _draw_debug_vis(self):
-        """ Draws visualizations for dubugging (slows down simulation a lot).
-            Default behaviour: draws height measurement points
-        """
-        # draw height lines
-        if not self.terrain.cfg.measure_heights:
-            return
-        self.gym.clear_lines(self.viewer)
-        self.gym.refresh_rigid_body_state_tensor(self.sim)
-        sphere_geom = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(1, 1, 0))
-        for i in range(self.num_envs):
-            base_pos = (self.root_states[i, :3]).cpu().numpy()
-            heights = self.measured_heights[i].cpu().numpy()
-            height_points = quat_apply_yaw(self.base_quat[i].repeat(heights.shape[0]), self.height_points[i]).cpu().numpy()
-            for j in range(heights.shape[0]):
-                x = height_points[j, 0] + base_pos[0]
-                y = height_points[j, 1] + base_pos[1]
-                z = heights[j]
-                sphere_pose = gymapi.Transform(gymapi.Vec3(x, y, z), r=None)
-                gymutil.draw_lines(sphere_geom, self.gym, self.viewer, self.envs[i], sphere_pose) 
     
     def _reset_root_states(self, env_ids):
         """ Resets ROOT states position and velocities of selected environmments
@@ -1414,5 +1449,5 @@ class IsaacGymSimulator(Simulator):
         tm_params.static_friction = self.cfg.terrain.static_friction
         tm_params.dynamic_friction = self.cfg.terrain.dynamic_friction
         tm_params.restitution = self.cfg.terrain.restitution
-        self.gym.add_triangle_mesh(self.sim, self.terrain.vertices.flatten(order='C'), self.terrain.triangles.flatten(order='C'), tm_params)   
+        self.gym.add_triangle_mesh(self.sim, self.terrain.vertices.flatten(order='K'), self.terrain.triangles.flatten(order='K'), tm_params)   
         self.height_samples = torch.tensor(self.terrain.heightsamples).view(self.terrain.tot_rows, self.terrain.tot_cols).to(self.device)

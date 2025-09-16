@@ -71,10 +71,10 @@ class Go2TS(LeggedRobot):
         critic_obs = torch.cat((
             self.obs_buf,                 # num_observations
             domain_randomization_info,    # 35
-            self.exp_C_frc_fl,
-            self.exp_C_frc_fr,
-            self.exp_C_frc_rl,
-            self.exp_C_frc_rr,
+            # self.exp_C_frc_fl,
+            # self.exp_C_frc_fr,
+            # self.exp_C_frc_rl,
+            # self.exp_C_frc_rr,
         ), dim=-1)
         if self.cfg.terrain.measure_heights: # 81
             heights = torch.clip(self.simulator.base_pos[:, 2].unsqueeze(
@@ -335,7 +335,7 @@ class Go2TS(LeggedRobot):
         base_height = torch.mean(self.simulator.base_pos[:, 2].unsqueeze(
             1) - self.simulator.measured_heights, dim=1)
         rew = torch.square(base_height - self.cfg.rewards.base_height_target)
-        return torch.exp(-rew)
+        return torch.exp(-rew / self.cfg.rewards.base_height_tracking_sigma)
     
     def _reward_feet_air_time(self):
         # Reward long steps
@@ -362,3 +362,12 @@ class Go2TS(LeggedRobot):
             ), dim=-1
         )
         return torch.exp(-clearance_error / self.cfg.rewards.foot_clearance_tracking_sigma)
+    
+    def _reward_hip_pos(self):
+        """ Reward for the hip joint position close to default position
+        """
+        hip_joint_indices = [0, 3, 6, 9]
+        dof_pos_error = torch.sum(torch.square(
+            self.simulator.dof_pos[:, hip_joint_indices] - 
+            self.simulator.default_dof_pos[:, hip_joint_indices]), dim=-1)
+        return dof_pos_error

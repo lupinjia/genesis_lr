@@ -9,13 +9,14 @@ class Go2TSCfg( LeggedRobotCfg ):
         num_history_obs = int(num_observations * frame_stack)
         num_latent_dims = num_privileged_obs
         c_frame_stack = 5
-        single_critic_obs_len = num_observations + 34 + 81 + 4
+        single_critic_obs_len = num_observations + 34 + 81
         num_critic_obs = c_frame_stack * single_critic_obs_len
         num_actions = 12
         env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        mesh_type = "heightfield" # none, plane, heightfield
+        mesh_type = "heightfield" # for genesis
+        # mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
         border_size = 10.0 # [m]
         curriculum = True
@@ -78,13 +79,16 @@ class Go2TSCfg( LeggedRobotCfg ):
         penalize_contacts_on = ["thigh", "calf", "base", "Head"]
         terminate_after_contacts_on = ["base"]
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
+        
+        flip_visual_attachments = False
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.34
+        base_height_target = 0.36
         foot_clearance_target = 0.05 # desired foot clearance above ground [m]
         foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
+        base_height_tracking_sigma = 0.5
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
@@ -102,11 +106,13 @@ class Go2TSCfg( LeggedRobotCfg ):
             dof_acc = -2.e-7
             action_rate = -0.01
             action_smoothness = -0.01
-            # torques = -2.e-4
+            torques = -2.e-4
             # gait
-            # feet_air_time = 0.5
-            quad_periodic_gait = 1.0
+            feet_air_time = 1.0
+            # quad_periodic_gait = 1.0
             foot_clearance = 0.5
+            hip_pos = -0.5
+            
         class periodic_reward_framework:
             # start of swing is all the same
             b_swing = 0.5
@@ -125,7 +131,7 @@ class Go2TSCfg( LeggedRobotCfg ):
         heading_command = True # if true: compute ang vel command from heading error
         class ranges( LeggedRobotCfg.commands.ranges ):
             lin_vel_x = [-0.5, 0.5] # min max [m/s]
-            lin_vel_y = [-0.5, 0.5]   # min max [m/s]
+            lin_vel_y = [-1.0, 1.0]   # min max [m/s]
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
             heading = [-3.14, 3.14]
             
@@ -162,9 +168,9 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticTS"
         algorithm_class_name = "PPO_TS"
-        run_name = ''
+        run_name = 'gs'
         experiment_name = 'go2_ts'
         save_interval = 200
-        load_run = "Sep16_15-20-28_"
+        load_run = "Sep16_17-22-47_gym"
         checkpoint = -1
-        max_iterations = 5000
+        max_iterations = 1200

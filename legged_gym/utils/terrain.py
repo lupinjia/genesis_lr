@@ -67,6 +67,11 @@ class Terrain:
             self.randomized_terrain()   
         
         self.heightsamples = self.height_field_raw
+        if self.type=="trimesh":
+            self.vertices, self.triangles = terrain_utils.convert_heightfield_to_trimesh(   self.height_field_raw,
+                                                                                            self.cfg.horizontal_scale,
+                                                                                            self.cfg.vertical_scale,
+                                                                                            self.cfg.slope_treshold)
     
     def randomized_terrain(self):
         for k in range(self.cfg.num_sub_terrains):
@@ -79,6 +84,7 @@ class Terrain:
             self.add_terrain_to_map(terrain, i, j)
         
     def curiculum(self):
+        print(f"Terrain Curriculum ON")
         for j in range(self.cfg.num_cols):     # Y
             for i in range(self.cfg.num_rows): # X
                 difficulty = i / self.cfg.num_rows     # add difficulty along X axis, row

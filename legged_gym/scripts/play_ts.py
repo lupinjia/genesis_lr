@@ -1,5 +1,4 @@
-import genesis as gs
-from legged_gym import LEGGED_GYM_ROOT_DIR
+from legged_gym import *
 import os
 
 from legged_gym.envs import *
@@ -10,10 +9,11 @@ import torch
 
 
 def play(args):
-    gs.init(
-        backend=gs.cpu if args.cpu else gs.gpu,
-        logging_level='warning',
-    )
+    if SIMULATOR == "genesis":
+        gs.init(
+            backend=gs.cpu if args.cpu else gs.gpu,
+            logging_level='warning',
+        )
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
     env_cfg.env.num_envs = min(env_cfg.env.num_envs, 4)
@@ -22,14 +22,29 @@ def play(args):
     env_cfg.terrain.num_cols = 2
     env_cfg.terrain.curriculum = False
     env_cfg.terrain.selected = True
+    
+    # stairs
+    env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
+                                      "step_width": 0.31, "step_height": -0.1, "platform_size": 3.0}
+    # single stair
+    # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
+    #                                   "step_width": 1.0, "step_height": -0.05, "platform_size": 3.0}
     # slope
-    env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_sloped_terrain",
-                                      "slope": -0.2, "platform_size": 2.0}
+    # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_sloped_terrain",
+    #                                   "slope": -0.3, "platform_size": 3.0}
+    # # discrete obstacles
+    # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.discrete_obstacles_terrain",
+    #                                   "max_height": 0.1,
+    #                                   "min_size": 1.0,
+    #                                   "max_size": 2.0,
+    #                                   "num_rects": 20,
+    #                                   "platform_size": 3.0}
+    
     env_cfg.asset.fix_base_link = False
     env_cfg.env.debug = True
     # velocity range
-    env_cfg.commands.ranges.lin_vel_x = [-1.0, 1.0]
-    env_cfg.commands.ranges.lin_vel_y = [-1.0, 1.0]
+    env_cfg.commands.ranges.lin_vel_x = [1.0, 1.0]
+    env_cfg.commands.ranges.lin_vel_y = [0.0, 0.0]
     env_cfg.commands.ranges.ang_vel_yaw = [0., 0.]
     env_cfg.commands.ranges.heading = [0.0, 0.0]
 

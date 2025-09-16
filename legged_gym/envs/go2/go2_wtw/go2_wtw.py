@@ -90,11 +90,6 @@ class GO2WTW(LeggedRobot):
                 self.exp_C_frc_rr,           # 4
             ), dim=-1)
 
-        # add perceptive inputs if not blind
-        # if self.cfg.terrain.measure_heights:
-        #     heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
-        #     self.obs_buf = torch.cat((self.obs_buf, heights), dim=-1)
-
         # add noise if needed
         if self.add_noise:
             obs_now = obs_buf.clone()
@@ -483,7 +478,7 @@ class GO2WTW(LeggedRobot):
     def _reward_tracking_base_height(self):
         # Penalize base height away from target
         base_height = torch.mean(self.simulator.base_pos[:, 2].unsqueeze(
-            1) - self.measured_heights, dim=1)
+            1) - self.simulator.measured_heights, dim=1)
         rew = torch.square(base_height - self.base_height_target.squeeze(1))
         return torch.exp(-rew / self.cfg.rewards.base_height_tracking_sigma)
 
