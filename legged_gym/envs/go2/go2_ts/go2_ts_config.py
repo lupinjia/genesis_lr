@@ -69,7 +69,7 @@ class Go2TSCfg( LeggedRobotCfg ):
         calf_name = "calf"
         foot_name = "foot"
         penalize_contacts_on = ["thigh", "calf", "base", "Head"]
-        terminate_after_contacts_on = ["base"]
+        terminate_after_contacts_on = []
         # Genesis: 
         dof_names = [        # specify the sequence of actions
             'FR_hip_joint',
@@ -104,8 +104,8 @@ class Go2TSCfg( LeggedRobotCfg ):
             # command tracking
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
-            base_height = 0.5
-            tracking_orientation = 0.3
+            base_height = 0.7
+            tracking_orientation = 0.7
             # smooth
             lin_vel_z = -0.5
             ang_vel_xy = -0.05
@@ -116,10 +116,9 @@ class Go2TSCfg( LeggedRobotCfg ):
             torques = -2.e-4
             # gait
             feet_air_time = 1.0
-            # quad_periodic_gait = 1.0
-            foot_clearance = 0.3
+            foot_clearance = 0.7
             hip_pos = -0.5
-    
+
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
         max_curriculum = 1.0
@@ -168,6 +167,6 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
         run_name = 'gym'
         experiment_name = 'go2_ts'
         save_interval = 500
-        load_run = "Sep19_12-46-01_gym"
+        load_run = "Sep19_19-03-25_gym"
         checkpoint = -1
         max_iterations = 2500
