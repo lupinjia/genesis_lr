@@ -16,7 +16,7 @@ def play(args):
         )
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
-    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 4)
+    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 10)
     env_cfg.viewer.rendered_envs_idx = list(range(env_cfg.env.num_envs))
     env_cfg.terrain.num_rows = 2
     env_cfg.terrain.num_cols = 2
@@ -43,7 +43,7 @@ def play(args):
     env_cfg.asset.fix_base_link = False
     env_cfg.env.debug = True
     # velocity range
-    env_cfg.commands.ranges.lin_vel_x = [1.0, 1.0]
+    env_cfg.commands.ranges.lin_vel_x = [-0.5, -0.5]
     env_cfg.commands.ranges.lin_vel_y = [0.0, 0.0]
     env_cfg.commands.ranges.ang_vel_yaw = [0., 0.]
     env_cfg.commands.ranges.heading = [0.0, 0.0]
@@ -59,8 +59,8 @@ def play(args):
     
     # export policy as a jit module (used to run it from C++)
     if EXPORT_POLICY:
-        path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
-        export_policy_as_jit(ppo_runner.alg.actor_critic, path)
+        path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, train_cfg.runner.load_run, 'exported')
+        export_policy_as_jit(ppo_runner.alg.actor_critic, path, train_cfg.runner.load_run, export_type="ts")
         print('Exported policy as jit script to: ', path)
 
     logger = Logger(env.dt)
@@ -108,6 +108,6 @@ def play(args):
             logger.print_rewards()
 
 if __name__ == '__main__':
-    EXPORT_POLICY = False
+    EXPORT_POLICY = True
     args = get_args()
     play(args)

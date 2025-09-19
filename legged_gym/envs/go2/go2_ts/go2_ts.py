@@ -112,20 +112,6 @@ class Go2TS(LeggedRobot):
 
     def _init_buffers(self):
         super()._init_buffers()
-        # Periodic Reward Framework
-        self.theta = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device)
-        self.theta[:, 0] = self.cfg.rewards.periodic_reward_framework.theta_fl_list[0]
-        self.theta[:, 1] = self.cfg.rewards.periodic_reward_framework.theta_fr_list[0]
-        self.theta[:, 2] = self.cfg.rewards.periodic_reward_framework.theta_rl_list[0]
-        self.theta[:, 3] = self.cfg.rewards.periodic_reward_framework.theta_rr_list[0]
-        self.gait_time = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
-        self.phi = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
-        self.gait_period = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
-        self.gait_period[:] = self.cfg.rewards.periodic_reward_framework.gait_period
-        self.b_swing = torch.zeros(
-            self.num_envs, 1, dtype=torch.float, device=self.device, requires_grad=False)
-        self.b_swing[:] = self.cfg.rewards.periodic_reward_framework.b_swing * 2 * torch.pi
-        
         # obs_history
         self.last_obs_buf = torch.zeros(
             (self.num_envs, self.cfg.env.num_observations),
@@ -161,9 +147,6 @@ class Go2TS(LeggedRobot):
 
     def reset_idx(self, env_ids):
         super().reset_idx(env_ids)
-        # Periodic Reward Framework buffer reset
-        self.gait_time[env_ids] = 0.0
-        self.phi[env_ids] = 0.0
         # clear obs history for the envs that are reset
         for i in range(self.obs_history_deque.maxlen):
             self.obs_history_deque[i][env_ids] *= 0
@@ -194,9 +177,6 @@ class Go2TS(LeggedRobot):
 
     def _parse_cfg(self, cfg):
         super()._parse_cfg(cfg)
-        # Periodic Reward Framework. Constants are init here.
-        self.a_swing = 0.0
-        self.b_stance = 2 * torch.pi
         self.num_history_obs = self.cfg.env.num_history_obs
         self.num_latent_dims = self.cfg.env.num_latent_dims
         self.num_critic_obs = self.cfg.env.num_critic_obs
@@ -222,15 +202,6 @@ class Go2TS(LeggedRobot):
         # compute observations, rewards, resets, ...
         self.check_termination()
         self.compute_reward()
-        
-        # Periodic Reward Framework phi cycle
-        # step after computing reward but before resetting the env
-        self.gait_time += self.dt
-        # +self.dt/2 in case of float precision errors
-        is_over_limit = (self.gait_time >= (self.gait_period - self.dt / 2))
-        over_limit_indices = is_over_limit.nonzero(as_tuple=False).flatten()
-        self.gait_time[over_limit_indices] = 0.0
-        self.phi = self.gait_time / self.gait_period
         
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset_idx(env_ids)
@@ -261,74 +232,6 @@ class Go2TS(LeggedRobot):
             self.simulator.calc_terrain_info_around_feet()
         if self.cfg.domain_rand.push_robots and (self.common_step_counter % self.cfg.domain_rand.push_interval == 0):
             self.simulator.push_robots()
-    
-    def _uniped_periodic_gait(self, foot_type):
-        # q_frc and q_spd
-        if foot_type == "FL":
-            q_frc = torch.norm(
-                self.simulator.link_contact_forces[:, 
-                                    self.simulator.feet_indices[0], :], dim=-1).view(-1, 1)
-            q_spd = torch.norm(
-                self.simulator.feet_vel[:, 0, :], dim=-1).view(-1, 1) # sequence of feet_pos is FL, FR, RL, RR
-            # size: num_envs; need to reshape to (num_envs, 1), or there will be error due to broadcasting
-            # modulo phi over 1.0 to get cicular phi in [0, 1.0]
-            phi = (self.phi + self.theta[:, 0].unsqueeze(1)) % 1.0
-        elif foot_type == "FR":
-            q_frc = torch.norm(
-                self.simulator.link_contact_forces[:, 
-                                    self.simulator.feet_indices[1], :], dim=-1).view(-1, 1)
-            q_spd = torch.norm(
-                self.simulator.feet_vel[:, 1, :], dim=-1).view(-1, 1)
-            # modulo phi over 1.0 to get cicular phi in [0, 1.0]
-            phi = (self.phi + self.theta[:, 1].unsqueeze(1)) % 1.0
-        elif foot_type == "RL":
-            q_frc = torch.norm(
-                self.simulator.link_contact_forces[:, 
-                                    self.simulator.feet_indices[2], :], dim=-1).view(-1, 1)
-            q_spd = torch.norm(
-                self.simulator.feet_vel[:, 2, :], dim=-1).view(-1, 1)
-            # modulo phi over 1.0 to get cicular phi in [0, 1.0]
-            phi = (self.phi + self.theta[:, 2].unsqueeze(1)) % 1.0
-        elif foot_type == "RR":
-            q_frc = torch.norm(
-                self.simulator.link_contact_forces[:, 
-                                    self.simulator.feet_indices[3], :], dim=-1).view(-1, 1)
-            q_spd = torch.norm(
-                self.simulator.feet_vel[:, 3, :], dim=-1).view(-1, 1)
-            # modulo phi over 1.0 to get cicular phi in [0, 1.0]
-            phi = (self.phi + self.theta[:, 3].unsqueeze(1)) % 1.0
-        
-        phi *= 2 * torch.pi  # convert phi to radians
-        
-        ''' ***** Step Gait Indicator ***** '''
-        exp_C_frc = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
-        exp_C_spd = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
-            
-        swing_indices = (phi >= self.a_swing) & (phi < self.b_swing)
-        swing_indices = swing_indices.nonzero(as_tuple=False).flatten()
-        stance_indices = (phi >= self.b_swing) & (phi < self.b_stance)
-        stance_indices = stance_indices.nonzero(as_tuple=False).flatten()
-        exp_C_frc[swing_indices, :] = -1
-        exp_C_spd[swing_indices, :] = 0
-        exp_C_frc[stance_indices, :] = 0
-        exp_C_spd[stance_indices, :] = -1
-
-        return exp_C_spd * q_spd + exp_C_frc * q_frc, \
-            exp_C_spd.type(dtype=torch.float), exp_C_frc.type(dtype=torch.float)
-    
-    def _reward_quad_periodic_gait(self):
-        quad_reward_fl, self.exp_C_spd_fl, self.exp_C_frc_fl = self._uniped_periodic_gait(
-            "FL")
-        quad_reward_fr, self.exp_C_spd_fr, self.exp_C_frc_fr = self._uniped_periodic_gait(
-            "FR")
-        quad_reward_rl, self.exp_C_spd_rl, self.exp_C_frc_rl = self._uniped_periodic_gait(
-            "RL")
-        quad_reward_rr, self.exp_C_spd_rr, self.exp_C_frc_rr = self._uniped_periodic_gait(
-            "RR")
-        # reward for the whole body
-        quad_reward = quad_reward_fl.flatten() + quad_reward_fr.flatten() + \
-            quad_reward_rl.flatten() + quad_reward_rr.flatten()
-        return torch.exp(quad_reward)
             
     def _reward_base_height(self):
         # Penalize base height away from target
