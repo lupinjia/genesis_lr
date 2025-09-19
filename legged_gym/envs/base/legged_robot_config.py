@@ -22,6 +22,7 @@ class LeggedRobotCfg(BaseConfig):
         dynamic_friction = 1.0
         restitution = 0.
         # rough terrain only:
+        obtain_terrain_info_around_feet = False
         measure_heights = False
         measured_points_x = [-0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8] # 1mx1.6m rectangle (without center line)
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
@@ -81,6 +82,7 @@ class LeggedRobotCfg(BaseConfig):
         penalize_contacts_on = []
         terminate_after_contacts_on = []
         fix_base_link = False    # fix base link to the world
+        obtain_link_contact_states = False
         # For Genesis
         links_to_keep = []          # links that are not merged because of fixed joints
         dof_names = ["joint_a", "joint_b"]

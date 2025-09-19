@@ -4,12 +4,12 @@ class Go2TSCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
         num_observations = 45  # num_obs
-        num_privileged_obs = 82
+        num_privileged_obs = 94
         frame_stack = 4    # number of frames to stack for obs_history
         num_history_obs = int(num_observations * frame_stack)
         num_latent_dims = num_privileged_obs
         c_frame_stack = 5
-        single_critic_obs_len = num_observations + 34 + 81
+        single_critic_obs_len = num_observations + 34 + 81 + 12
         num_critic_obs = c_frame_stack * single_critic_obs_len
         num_actions = 12
         env_spacing = 0.5
@@ -21,6 +21,7 @@ class Go2TSCfg( LeggedRobotCfg ):
         border_size = 10.0 # [m]
         curriculum = True
         # rough terrain only:
+        obtain_terrain_info_around_feet = True
         measure_heights = True
         measured_points_x = [-0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4] # 9x9=81
         measured_points_y = [-0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4]
@@ -60,8 +61,16 @@ class Go2TSCfg( LeggedRobotCfg ):
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
 
     class asset( LeggedRobotCfg.asset ):
+        # Common: 
         name = "go2"
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
+        obtain_link_contact_states = True
+        thigh_name = "thigh"
+        calf_name = "calf"
+        foot_name = "foot"
+        penalize_contacts_on = ["thigh", "calf", "base", "Head"]
+        terminate_after_contacts_on = ["base"]
+        # Genesis: 
         dof_names = [        # specify the sequence of actions
             'FR_hip_joint',
             'FR_thigh_joint',
@@ -75,20 +84,18 @@ class Go2TSCfg( LeggedRobotCfg ):
             'RL_hip_joint',
             'RL_thigh_joint',
             'RL_calf_joint',]
-        foot_name = "foot"
-        penalize_contacts_on = ["thigh", "calf", "base", "Head"]
-        terminate_after_contacts_on = ["base"]
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
-        
+        # IsaacGym:
         flip_visual_attachments = False
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.36
+        base_height_target = 0.34
         foot_clearance_target = 0.05 # desired foot clearance above ground [m]
         foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
-        base_height_tracking_sigma = 0.5
+        base_height_tracking_sigma = 0.05
+        orientation_tracking_sigma = 0.1
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
@@ -98,10 +105,10 @@ class Go2TSCfg( LeggedRobotCfg ):
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
             base_height = 0.5
+            tracking_orientation = 0.3
             # smooth
             lin_vel_z = -0.5
             ang_vel_xy = -0.05
-            orientation = -0.5
             dof_vel = -2.e-5
             dof_acc = -2.e-7
             action_rate = -0.01
@@ -109,18 +116,9 @@ class Go2TSCfg( LeggedRobotCfg ):
             torques = -2.e-4
             # gait
             feet_air_time = 1.0
-            foot_clearance = 0.5
+            # quad_periodic_gait = 1.0
+            foot_clearance = 0.3
             hip_pos = -0.5
-            
-        class periodic_reward_framework:
-            # start of swing is all the same
-            b_swing = 0.5
-            gait_period = 0.5
-            # trot
-            theta_fl_list = [0.0]
-            theta_fr_list = [0.5]
-            theta_rl_list = [0.5]
-            theta_rr_list = [0.0]
     
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
@@ -169,7 +167,7 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
         algorithm_class_name = "PPO_TS"
         run_name = 'gym'
         experiment_name = 'go2_ts'
-        save_interval = 200
-        load_run = "Sep16_20-36-02_gym"
+        save_interval = 500
+        load_run = "Sep19_12-46-01_gym"
         checkpoint = -1
-        max_iterations = 1200
+        max_iterations = 2500
