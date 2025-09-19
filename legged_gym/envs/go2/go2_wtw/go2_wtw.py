@@ -199,6 +199,14 @@ class GO2WTW(LeggedRobot):
         self.theta[env_ids, 1] = self.cfg.rewards.periodic_reward_framework.theta_fr_list[selected_idx]
         self.theta[env_ids, 2] = self.cfg.rewards.periodic_reward_framework.theta_rl_list[selected_idx]
         self.theta[env_ids, 3] = self.cfg.rewards.periodic_reward_framework.theta_rr_list[selected_idx]
+        
+        # Environments with pronk and bound gait should not give too high foot clearance target
+        pronk_env_ids = ((self.theta[:, 0] == 0.0) & (self.theta[:, 1] == 0.0) & \
+                        (self.theta[:, 2] == 0.0) & (self.theta[:, 3] == 0.0)).nonzero(as_tuple=False).flatten()
+        bound_env_ids = ((self.theta[:, 0] == 0.0) & (self.theta[:, 1] == 0.0) & \
+                        (self.theta[:, 2] == 0.5) & (self.theta[:, 3] == 0.5)).nonzero(as_tuple=False).flatten()
+        self.foot_clearance_target[pronk_env_ids, :] = self.foot_clearance_target_range[0]
+        self.foot_clearance_target[bound_env_ids, :] = self.foot_clearance_target_range[0]
 
     def _update_behavior_param_curriculum(self, env_ids):
         if len(env_ids) == 0:
@@ -217,8 +225,8 @@ class GO2WTW(LeggedRobot):
             self.base_height_target_range[0] = max(self.base_height_target_range[0] - 0.02, self.base_height_target_min)
             self.base_height_target_range[1] = min(self.base_height_target_range[1] + 0.02, self.base_height_target_max)
 
-        if torch.mean(self.episode_sums["foot_clearance"][env_ids]) / \
-            self.max_episode_length > 0.8 * self.reward_scales["foot_clearance"]:
+        if torch.mean(self.episode_sums["tracking_foot_clearance"][env_ids]) / \
+            self.max_episode_length > 0.8 * self.reward_scales["tracking_foot_clearance"]:
             self.foot_clearance_target_range[0] = max(self.foot_clearance_target_range[0] - 0.01, 
                                                       self.foot_clearance_target_min)
             self.foot_clearance_target_range[1] = min(self.foot_clearance_target_range[1] + 0.01, 
@@ -347,7 +355,7 @@ class GO2WTW(LeggedRobot):
         self.gait_period_range = [(self.gait_period_min + self.gait_period_max) / 2] * 2
         self.foot_clearance_target_min = self.cfg.rewards.behavior_params_range.foot_clearance_target_range[0]
         self.foot_clearance_target_max = self.cfg.rewards.behavior_params_range.foot_clearance_target_range[1]
-        self.foot_clearance_target_range = [(self.foot_clearance_target_min + self.foot_clearance_target_max) / 2] * 2
+        self.foot_clearance_target_range = [self.foot_clearance_target_min] * 2
         self.base_height_target_min = self.cfg.rewards.behavior_params_range.base_height_target_range[0]
         self.base_height_target_max = self.cfg.rewards.behavior_params_range.base_height_target_range[1]
         self.base_height_target_range = [(self.base_height_target_min + self.base_height_target_max) / 2] * 2
@@ -486,3 +494,17 @@ class GO2WTW(LeggedRobot):
         roll_error = torch.square(self.simulator.base_euler[:, 0])
         pitch_error = torch.square(self.simulator.base_euler[:, 1] - self.pitch_target.squeeze(1))
         return torch.exp(-(roll_error + pitch_error) / self.cfg.rewards.euler_tracking_sigma)
+    
+    def _reward_tracking_foot_clearance(self):
+        """
+        Encourage feet to be close to desired height while swinging
+        """
+        foot_vel_xy_norm = torch.norm(self.simulator.feet_vel[:, :, :2], dim=-1)
+        clearance_error = torch.sum(
+            foot_vel_xy_norm * torch.square(
+                self.simulator.feet_pos[:, :, 2] -
+                self.foot_clearance_target -
+                self.cfg.rewards.foot_height_offset
+            ), dim=-1
+        )
+        return torch.exp(-clearance_error / self.cfg.rewards.foot_clearance_tracking_sigma)
