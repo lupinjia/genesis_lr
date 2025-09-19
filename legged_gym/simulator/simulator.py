@@ -470,7 +470,7 @@ class GenesisSimulator(Simulator):
         right_height = self.measured_heights[:, self.right_point_index]
 
         # compute the height gradients along x and y direction
-        dx = ((front_height - rear_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
+        dx = ((front_height - rear_height) / (self.cfg.terrain.horizontal_scale * 4)).unsqueeze(1)
         dy = ((left_height - right_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
         # compute the normal vector
         self.normal_vector_around_base = torch.cat(
@@ -558,10 +558,14 @@ class GenesisSimulator(Simulator):
         # Get index of 4 points around robot base
         self.num_x_points = x.shape[0]
         self.num_y_points = y.shape[0]
-        self.front_point_index = (self.num_x_points + 1) // 2 * self.num_y_points + (self.num_y_points - 1) // 2
-        self.rear_point_index = ((self.num_x_points - 1) // 2 - 1) * self.num_y_points + (self.num_y_points - 1) // 2
-        self.left_point_index = (self.num_x_points - 1) // 2 * self.num_y_points + (self.num_y_points + 1) // 2
-        self.right_point_index = (self.num_x_points - 1) // 2 * self.num_y_points + (self.num_y_points - 1) // 2 - 1
+        self.front_point_index = (self.num_x_points // 2 + 2) * self.num_y_points \
+            + (self.num_y_points - 1) // 2 # [base_pos_x+2*horizontal_scale, base_pos_y]
+        self.rear_point_index = (self.num_x_points // 2 - 2) * self.num_y_points \
+            + (self.num_y_points - 1) // 2 # [base_pos_x-2*horizontal_scale, base_pos_y]
+        self.left_point_index = self.num_x_points // 2 * self.num_y_points \
+            + self.num_y_points // 2 + 1   # [base_pos_x, base_pos_y+horizontal_scale]
+        self.right_point_index = self.num_x_points // 2 * self.num_y_points \
+            + self.num_y_points // 2 - 1   # [base_pos_x, base_pos_y-horizontal_scale]
         
         grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
 
@@ -1164,7 +1168,7 @@ class IsaacGymSimulator(Simulator):
         right_height = self.measured_heights[:, self.right_point_index]
 
         # compute the height gradients along x and y direction
-        dx = ((front_height - rear_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
+        dx = ((front_height - rear_height) / (self.cfg.terrain.horizontal_scale * 4)).unsqueeze(1)
         dy = ((left_height - right_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
         # compute the normal vector
         self.normal_vector_around_base = torch.cat(
@@ -1182,8 +1186,21 @@ class IsaacGymSimulator(Simulator):
             return
         self.gym.clear_lines(self.viewer)
         self.gym.refresh_rigid_body_state_tensor(self.sim)
+        sphere_geom = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(1, 1, 0))
+        sphere_geom1 = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(0, 0, 1))
         for i in range(self.num_envs):
             base_pos = (self.root_states[i, :3]).cpu().numpy()
+            # heights = self.measured_heights[i].cpu().numpy()
+            # height_points = quat_apply_yaw(self.base_quat[i].repeat(heights.shape[0]), self.height_points[i]).cpu().numpy()
+            # for j in range(heights.shape[0]):
+            #     x = height_points[j, 0] + base_pos[0]
+            #     y = height_points[j, 1] + base_pos[1]
+            #     z = heights[j]
+            #     sphere_pose = gymapi.Transform(gymapi.Vec3(x, y, z), r=None)
+            #     if j == self.front_point_index or j == self.rear_point_index or j == self.left_point_index or j == self.right_point_index:
+            #         gymutil.draw_lines(sphere_geom1, self.gym, self.viewer, self.envs[i], sphere_pose)
+            #     else:
+            #         gymutil.draw_lines(sphere_geom, self.gym, self.viewer, self.envs[i], sphere_pose) 
             # draw normal vector
             base_position = gymapi.Vec3(
                 base_pos[0], base_pos[1], base_pos[2])
@@ -1242,10 +1259,14 @@ class IsaacGymSimulator(Simulator):
         # Get index of 4 points around robot base
         self.num_x_points = x.shape[0]
         self.num_y_points = y.shape[0]
-        self.front_point_index = (self.num_x_points + 1) // 2 * self.num_y_points + (self.num_y_points - 1) // 2
-        self.rear_point_index = ((self.num_x_points - 1) // 2 - 1) * self.num_y_points + (self.num_y_points - 1) // 2
-        self.left_point_index = (self.num_x_points - 1) // 2 * self.num_y_points + (self.num_y_points + 1) // 2
-        self.right_point_index = (self.num_x_points - 1) // 2 * self.num_y_points + (self.num_y_points - 1) // 2 - 1
+        self.front_point_index = (self.num_x_points // 2 + 2) * self.num_y_points \
+            + (self.num_y_points - 1) // 2 # [base_pos_x+2*horizontal_scale, base_pos_y]
+        self.rear_point_index = (self.num_x_points // 2 - 2) * self.num_y_points \
+            + (self.num_y_points - 1) // 2 # [base_pos_x-2*horizontal_scale, base_pos_y]
+        self.left_point_index = self.num_x_points // 2 * self.num_y_points \
+            + self.num_y_points // 2 + 1   # [base_pos_x, base_pos_y+horizontal_scale]
+        self.right_point_index = self.num_x_points // 2 * self.num_y_points \
+            + self.num_y_points // 2 - 1   # [base_pos_x, base_pos_y-horizontal_scale]
         
         grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
 

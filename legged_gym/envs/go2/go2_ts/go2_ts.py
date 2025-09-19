@@ -67,6 +67,7 @@ class Go2TS(LeggedRobot):
                     self.simulator._joint_stiffness,        # 1
                     self.simulator._joint_damping,          # 1
             ), dim=-1)
+        
         # Critic observation
         critic_obs = torch.cat((
             self.obs_buf,                 # num_observations
@@ -105,6 +106,7 @@ class Go2TS(LeggedRobot):
                 for i in range(self.obs_history_deque.maxlen)],
             dim=-1,
         )
+        
         # Privileged observation, for privileged encoder
         if self.num_privileged_obs is not None:
             self.privileged_obs_buf = torch.cat(

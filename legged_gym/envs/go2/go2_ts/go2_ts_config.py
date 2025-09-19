@@ -104,8 +104,8 @@ class Go2TSCfg( LeggedRobotCfg ):
             # command tracking
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
-            base_height = 0.7
-            tracking_orientation = 0.7
+            base_height = 0.6
+            tracking_orientation = 0.4
             # smooth
             lin_vel_z = -0.5
             ang_vel_xy = -0.05
@@ -116,8 +116,9 @@ class Go2TSCfg( LeggedRobotCfg ):
             torques = -2.e-4
             # gait
             feet_air_time = 1.0
-            foot_clearance = 0.7
+            foot_clearance = 0.4
             hip_pos = -0.5
+            stand_still = -1.0
 
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
@@ -167,6 +168,6 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
         run_name = 'gym'
         experiment_name = 'go2_ts'
         save_interval = 500
-        load_run = "Sep19_19-03-25_gym"
+        load_run = "Sep19_23-00-21_gym"
         checkpoint = -1
         max_iterations = 2500
