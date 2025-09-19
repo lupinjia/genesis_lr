@@ -35,7 +35,7 @@ python train.py --task=go2 --headless
 After the training is over (1000 iterations), you will see a new folder named by the date and time when the training begins (`date_time_`, such as `Sep03_16-30-16_`). Paste that folder name to `go2_config.py`, override the `load_run` attribute in `runner` class of `GO2CfgPPO` class. Then run this command and you will see a simulator scene showing the robots walking on the plane:
 
 ```bash
-python play_quad.py --task=go2
+python play.py --task=go2
 ```
 
 ```{figure} ../../_static/images/play_in_genesis.png

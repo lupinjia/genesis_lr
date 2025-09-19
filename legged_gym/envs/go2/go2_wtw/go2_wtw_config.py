@@ -89,7 +89,7 @@ class GO2WTWCfg(LeggedRobotCfg):
             tracking_ang_vel = 0.5
             tracking_base_height = 0.6
             tracking_orientation = 0.6
-            foot_clearance = 0.8
+            tracking_foot_clearance = 0.9
             quad_periodic_gait = 1.5
             # smooth
             lin_vel_z = -0.5
@@ -99,7 +99,7 @@ class GO2WTWCfg(LeggedRobotCfg):
             action_rate = -0.01
             action_smoothness = -0.01
             torques = -2.e-4
-            foot_landing_vel = -0.15
+            foot_landing_vel = -0.1
             hip_pos = -1.0
             
         class periodic_reward_framework:
@@ -117,8 +117,8 @@ class GO2WTWCfg(LeggedRobotCfg):
         class behavior_params_range:
             resampling_time = 5.0
             gait_period_range = [0.3, 0.6]
-            foot_clearance_target_range = [0.03, 0.12]
-            base_height_target_range = [0.2, 0.36]
+            foot_clearance_target_range = [0.04, 0.12]
+            base_height_target_range = [0.2, 0.34]
             pitch_target_range = [-0.3, 0.3]
             
     class commands(LeggedRobotCfg.commands):
@@ -178,6 +178,6 @@ class GO2WTWCfgPPO(LeggedRobotCfgPPO):
         run_name = 'step_gait'
         experiment_name = 'go2_wtw'
         save_interval = 500
-        load_run = "Sep15_09-38-49_step_gait"
+        load_run = "Sep19_11-01-20_step_gait"
         checkpoint = -1
         max_iterations = 5000

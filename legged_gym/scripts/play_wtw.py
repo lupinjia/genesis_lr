@@ -36,9 +36,9 @@ def play(args):
     env_cfg.rewards.behavior_params_range.foot_clearance_target_range = [0.03, 0.03]
     env_cfg.rewards.behavior_params_range.pitch_target_range = [0.0, 0.0]
     env_cfg.rewards.periodic_reward_framework.theta_fl_list = [0.0]
-    env_cfg.rewards.periodic_reward_framework.theta_fr_list = [0.5]
+    env_cfg.rewards.periodic_reward_framework.theta_fr_list = [0.0]
     env_cfg.rewards.periodic_reward_framework.theta_rl_list = [0.5]
-    env_cfg.rewards.periodic_reward_framework.theta_rr_list = [0.0]
+    env_cfg.rewards.periodic_reward_framework.theta_rr_list = [0.5]
     # velocity range
     env_cfg.commands.ranges.lin_vel_x = [-1.0, 1.0]
 
@@ -72,7 +72,7 @@ def play(args):
         obs, _, rews, dones, infos = env.step(actions.detach())
 
         # print(f"base height: {env.simulator.base_pos[robot_index, 2].item()}")
-        # print(f"foot height: {env.simulator.feet_pos[robot_index, :, 2]}")
+        print(f"foot height: {env.simulator.feet_pos[robot_index, :, 2]}")
         if FOLLOW_ROBOT:
             # refresh where camera looks at(robot 0 base)
             camera_lookat_follow = env.simulator.base_pos[robot_index, :].cpu().numpy()
