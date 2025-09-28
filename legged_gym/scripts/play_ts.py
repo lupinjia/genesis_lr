@@ -24,14 +24,14 @@ def play(args):
     env_cfg.terrain.selected = True
     
     # stairs
-    # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
-    #                                   "step_width": 0.31, "step_height": -0.15, "platform_size": 3.0}
+    env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
+                                      "step_width": 0.31, "step_height": -0.13, "platform_size": 3.0}
     # single stair
     # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
     #                                   "step_width": 1.0, "step_height": -0.05, "platform_size": 3.0}
     # slope
-    env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_sloped_terrain",
-                                      "slope": -0.4, "platform_size": 3.0}
+    # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_sloped_terrain",
+    #                                   "slope": -0.4, "platform_size": 3.0}
     # # discrete obstacles
     # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.discrete_obstacles_terrain",
     #                                   "max_height": 0.1,
@@ -75,7 +75,7 @@ def play(args):
         
         # print debug info
         # print("------------")
-        print(f"base height: {env.simulator.base_pos[robot_index,2].item():.3f} m")
+        # print(f"base height: {env.simulator.base_pos[robot_index,2].item():.3f} m")
         # print(f"measured_heights: {env.simulator.measured_heights[robot_index].cpu().numpy()}")
         # print(f"height_around_feet: {env.simulator.height_around_feet[robot_index].cpu().numpy()}")
         # print("------------")

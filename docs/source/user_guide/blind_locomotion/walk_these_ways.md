@@ -151,7 +151,13 @@ Here, the gait specification method we use is based on the principle in [Siekman
         return torch.exp(quad_reward)
 ```
 
-One can choose to use either `gait_function_type` (specified in `go2_wtw_config.py`). Based on our practice, there's no much difference in terms of performance between `step function` and `smooth function`.
+One can choose to use either `gait_function_type` (specified in `go2_wtw_config.py`). Below are curves of `exp_C_frc` using `smooth_function(kappa=20)` and `step_function`:
+```{figure} ../../_static/images/exp_C_frc_smooth_gait.png
+```
+```{figure} ../../_static/images/exp_C_frc_step_gait.png
+```
+
+Based on our practice, there's no much difference in terms of gait tracking performance between `step function` and `smooth function`.
 
 ## Task Rewards
 

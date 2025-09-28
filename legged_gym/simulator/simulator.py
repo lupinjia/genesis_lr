@@ -90,10 +90,7 @@ class GenesisSimulator(Simulator):
                 enable_joint_limit=True,
                 enable_self_collision=self.cfg.asset.self_collisions_gs,
                 max_collision_pairs=self.cfg.sim.max_collision_pairs,
-                IK_max_targets=self.cfg.sim.IK_max_targets,
-                batch_dofs_info=True,
-                batch_joints_info=True,
-                batch_links_info=True,
+                IK_max_targets=self.cfg.sim.IK_max_targets
             ),
             show_viewer=not self.headless,
         )
@@ -190,6 +187,11 @@ class GenesisSimulator(Simulator):
         self.feet_indices = find_link_indices(self.feet_names)
         print(f"feet names: {self.feet_names}, feet link indices: {self.feet_indices}")
         assert len(self.feet_indices) > 0
+        
+        if self.cfg.asset.obtain_link_contact_states:
+            self.contact_state_link_indices = find_link_indices(
+                self.cfg.asset.contact_state_link_names
+            )
 
         # dof position limits
         self.dof_pos_limits = torch.stack(
@@ -272,9 +274,11 @@ class GenesisSimulator(Simulator):
                 self.num_envs, len(self.feet_indices) * 3, dtype=torch.float, device=self.device, requires_grad=False)
             self.height_around_feet = torch.zeros(
                 self.num_envs, len(self.feet_indices), 9, dtype=torch.float, device=self.device, requires_grad=False)
-        self.normal_vector_around_base = torch.zeros(
-            self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
-
+        
+        if self.cfg.asset.obtain_link_contact_states:
+            self.link_contact_states = torch.zeros(
+                self.num_envs, len(self.contact_state_link_indices), dtype=torch.float, device=self.device, requires_grad=False)
+        
         self.default_dof_pos = torch.tensor(
             [self.cfg.init_state.default_joint_angles[name]
                 for name in self.cfg.asset.dof_names],
@@ -297,8 +301,8 @@ class GenesisSimulator(Simulator):
         self.batched_p_gains = self.p_gains[None, :].repeat(self.num_envs, 1)
         self.batched_d_gains = self.d_gains[None, :].repeat(self.num_envs, 1)
         # PD control params
-        self.robot.set_dofs_kp(self.batched_p_gains, self.motors_dof_idx)
-        self.robot.set_dofs_kv(self.batched_d_gains, self.motors_dof_idx)
+        self.robot.set_dofs_kp(self.p_gains, self.motors_dof_idx)
+        self.robot.set_dofs_kv(self.d_gains, self.motors_dof_idx)
 
     def step(self, actions):
         """Simulator steps, receiving actions from the agent"""
@@ -327,6 +331,10 @@ class GenesisSimulator(Simulator):
         self.link_contact_forces[:] = self.robot.get_links_net_contact_force()
         self.feet_pos[:] = self.robot.get_links_pos()[:, self.feet_indices, :]
         self.feet_vel[:] = self.robot.get_links_vel()[:, self.feet_indices, :]
+        # Link contact state
+        if self.cfg.asset.obtain_link_contact_states:
+            self.link_contact_states = 1. * (torch.norm(
+                self.link_contact_forces[:, self.contact_state_link_indices, :], dim=-1) > 1.)
         
         self._check_base_pos_out_of_bound()
 
@@ -457,23 +465,6 @@ class GenesisSimulator(Simulator):
         # Calculate height around feet
         for i in range(9):
             self.height_around_feet[:, :, i] = eval(f'heights{i+1}').view(self.num_envs, -1)[:] * self.cfg.terrain.vertical_scale
-    
-    def calc_terrain_info_around_base(self):
-        """ Calculates terrain information around the base of the robot."""
-        front_height = self.measured_heights[:, self.front_point_index]
-        rear_height = self.measured_heights[:, self.rear_point_index]
-        left_height = self.measured_heights[:, self.left_point_index]
-        right_height = self.measured_heights[:, self.right_point_index]
-
-        # compute the height gradients along x and y direction
-        dx = ((front_height - rear_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
-        dy = ((left_height - right_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
-        # compute the normal vector
-        self.normal_vector_around_base = torch.cat(
-            (dx, dy, -1*torch.ones_like(dx)), dim=-1).to(self.device)
-        # normalize the vector
-        self.normal_vector_around_base /= torch.norm(
-            self.normal_vector_around_base, dim=-1, keepdim=True)
         
     def draw_debug_vis(self):
         """ Draws visualizations for dubugging (slows down simulation a lot).
@@ -763,10 +754,10 @@ class GenesisSimulator(Simulator):
         """ Randomize joint armature of the robot
         """
         min_armature, max_armature = self.cfg.domain_rand.joint_armature_range
-        armature = torch.rand((len(env_ids), 1), dtype=torch.float, device=self.device) \
+        armature = torch.rand((1,), dtype=torch.float, device=self.device) \
             * (max_armature - min_armature) + min_armature
-        self._joint_armature[env_ids, 0] = armature[:, 0].detach().clone()
-        armature = armature.repeat(1, self.num_actions)  # repeat for all motors
+        self._joint_armature[env_ids, 0] = armature[0].detach().clone()
+        armature = armature.repeat(self.num_actions)  # repeat for all motors
         self.robot.set_dofs_armature(
             armature, self.motors_dof_idx, envs_idx=env_ids)  # all environments share the same armature
         # This armature will be Refreshed when envs are reset
@@ -775,10 +766,10 @@ class GenesisSimulator(Simulator):
         """ Randomize joint friction of the robot
         """
         min_friction, max_friction = self.cfg.domain_rand.joint_friction_range
-        friction = torch.rand((len(env_ids), 1), dtype=torch.float, device=self.device) \
+        friction = torch.rand((1,), dtype=torch.float, device=self.device) \
             * (max_friction - min_friction) + min_friction
-        self._joint_friction[env_ids, 0] = friction[:, 0].detach().clone()
-        friction = friction.repeat(1, self.num_actions)
+        self._joint_friction[env_ids, 0] = friction[0].detach().clone()
+        friction = friction.repeat(self.num_actions)
         self.robot.set_dofs_stiffness(
             friction, self.motors_dof_idx, envs_idx=env_ids)
 
@@ -786,10 +777,10 @@ class GenesisSimulator(Simulator):
         """ Randomize joint damping of the robot
         """
         min_damping, max_damping = self.cfg.domain_rand.joint_damping_range
-        damping = torch.rand((len(env_ids), 1), dtype=torch.float, device=self.device) \
+        damping = torch.rand((1,), dtype=torch.float, device=self.device) \
             * (max_damping - min_damping) + min_damping
-        self._joint_damping[env_ids, 0] = damping[:, 0].detach().clone()
-        damping = damping.repeat(1, self.num_actions)
+        self._joint_damping[env_ids, 0] = damping[0].detach().clone()
+        damping = damping.repeat(self.num_actions)
         self.robot.set_dofs_damping(
             damping, self.motors_dof_idx, envs_idx=env_ids)
 
@@ -897,8 +888,9 @@ class IsaacGymSimulator(Simulator):
         for name in self.cfg.asset.terminate_after_contacts_on:
             termination_contact_names.extend([s for s in body_names if name in s])
         if self.cfg.asset.obtain_link_contact_states:
-            thigh_names = [s for s in body_names if self.cfg.asset.thigh_name in s]
-            calf_names = [s for s in body_names if self.cfg.asset.calf_name in s]
+            contact_state_link_names = []
+            for name in self.cfg.asset.contact_state_link_names:
+                contact_state_link_names.extend([s for s in body_names if name in s])
 
         base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot_gym + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = torch.tensor(base_init_state_list, dtype=torch.float, 
@@ -946,13 +938,10 @@ class IsaacGymSimulator(Simulator):
             self.termination_contact_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], termination_contact_names[i])
         
         if self.cfg.asset.obtain_link_contact_states:
-            self.thigh_indices = torch.zeros(len(thigh_names), dtype=torch.long, device=self.device, requires_grad=False)
-            for i in range(len(thigh_names)):
-                self.thigh_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], thigh_names[i])
-            self.calf_indices = torch.zeros(len(calf_names), dtype=torch.long, device=self.device, requires_grad=False)
-            for i in range(len(calf_names)):
-                self.calf_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], calf_names[i])
-        
+            self.contact_state_link_indices = torch.zeros(len(contact_state_link_names), dtype=torch.long, device=self.device, requires_grad=False)
+            for i in range(len(contact_state_link_names)):
+                self.contact_state_link_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], contact_state_link_names[i])
+
         self.gym.prepare_sim(self.sim)
         # todo: read from config
         self.enable_viewer_sync = True
@@ -1010,18 +999,12 @@ class IsaacGymSimulator(Simulator):
                 self.num_envs, len(self.feet_indices) * 3, dtype=torch.float, device=self.device, requires_grad=False)
             self.height_around_feet = torch.zeros(
                 self.num_envs, len(self.feet_indices), 9, dtype=torch.float, device=self.device, requires_grad=False)
-        self.normal_vector_around_base = torch.zeros(
-            self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
         
         # Link contact state
         if self.cfg.asset.obtain_link_contact_states:
-            self.thigh_contact_states = torch.zeros(
-                self.num_envs, len(self.thigh_indices), dtype=torch.float, device=self.device, requires_grad=False)
-            self.calf_contact_states = torch.zeros(
-                self.num_envs, len(self.calf_indices), dtype=torch.float, device=self.device, requires_grad=False)
-            self.foot_contact_states = torch.zeros(
-                self.num_envs, len(self.feet_indices), dtype=torch.float, device=self.device, requires_grad=False)
-        
+            self.link_contact_states = torch.zeros(
+                self.num_envs, len(self.contact_state_link_indices), dtype=torch.float, device=self.device, requires_grad=False)
+
         # joint positions offsets and PD gains
         self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
         for i in range(self.num_dof):
@@ -1069,9 +1052,8 @@ class IsaacGymSimulator(Simulator):
         self.feet_pos = self.rigid_body_states[:, self.feet_indices, 0:3]
         # Link contact state
         if self.cfg.asset.obtain_link_contact_states:
-            self.thigh_contact_states = 1. * (torch.norm(self.link_contact_forces[:, self.thigh_indices, :], dim=-1) > 1.)
-            self.calf_contact_states = 1. * (torch.norm(self.link_contact_forces[:, self.calf_indices, :], dim=-1) > 1.)
-            self.foot_contact_states = 1. * (torch.norm(self.link_contact_forces[:, self.feet_indices, :], dim=-1) > 1.)
+            self.link_contact_states = 1. * (torch.norm(
+                self.link_contact_forces[:, self.contact_state_link_indices, :], dim=-1) > 1.)
     
     def get_heights(self, env_ids=None):
         """ Samples heights of the terrain at required points around each robot.
@@ -1148,23 +1130,6 @@ class IsaacGymSimulator(Simulator):
         # Calculate height around feet
         for i in range(9):
             self.height_around_feet[:, :, i] = eval(f'heights{i+1}').view(self.num_envs, -1)[:] * self.cfg.terrain.vertical_scale
-
-    def calc_terrain_info_around_base(self):
-        """ Calculates terrain information around the base of the robot."""
-        front_height = self.measured_heights[:, self.front_point_index]
-        rear_height = self.measured_heights[:, self.rear_point_index]
-        left_height = self.measured_heights[:, self.left_point_index]
-        right_height = self.measured_heights[:, self.right_point_index]
-
-        # compute the height gradients along x and y direction
-        dx = ((front_height - rear_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
-        dy = ((left_height - right_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
-        # compute the normal vector
-        self.normal_vector_around_base = torch.cat(
-            (dx, dy, -1*torch.ones_like(dx)), dim=-1).to(self.device)
-        # normalize the vector
-        self.normal_vector_around_base /= torch.norm(
-            self.normal_vector_around_base, dim=-1, keepdim=True)
     
     def draw_debug_vis(self):
         """ Draws visualizations for dubugging (slows down simulation a lot).
@@ -1173,22 +1138,22 @@ class IsaacGymSimulator(Simulator):
         # draw height lines
         if not self.terrain.cfg.measure_heights:
             return
-        self.gym.clear_lines(self.viewer)
-        self.gym.refresh_rigid_body_state_tensor(self.sim)
-        for i in range(self.num_envs):
-            base_pos = (self.root_states[i, :3]).cpu().numpy()
-            # draw normal vector
-            base_position = gymapi.Vec3(
-                base_pos[0], base_pos[1], base_pos[2])
-            normal_vector = gymapi.Vec3(
-                base_pos[0]+self.normal_vector_around_base[i, 0].item(), 
-                base_pos[1]+self.normal_vector_around_base[i, 1].item(), 
-                base_pos[2]+self.normal_vector_around_base[i, 2].item())
-            projected_gravity = gymapi.Vec3(
-                base_pos[0]-self.projected_gravity[i, 0].item(), base_pos[1]-self.projected_gravity[i, 1].item(), base_pos[2]+self.projected_gravity[i, 2].item())
-            # draw projected gravity vector
-            gymutil.draw_line(base_position, projected_gravity, gymapi.Vec3(0, 1, 0), self.gym, self.viewer, self.envs[i])
-            gymutil.draw_line(base_position, normal_vector, gymapi.Vec3(1, 0, 0), self.gym, self.viewer, self.envs[i])
+        # self.gym.clear_lines(self.viewer)
+        # self.gym.refresh_rigid_body_state_tensor(self.sim)
+        # for i in range(self.num_envs):
+        #     base_pos = (self.root_states[i, :3]).cpu().numpy()
+        #     # draw normal vector
+        #     base_position = gymapi.Vec3(
+        #         base_pos[0], base_pos[1], base_pos[2])
+        #     normal_vector = gymapi.Vec3(
+        #         base_pos[0]+self.normal_vector_around_base[i, 0].item(), 
+        #         base_pos[1]+self.normal_vector_around_base[i, 1].item(), 
+        #         base_pos[2]+self.normal_vector_around_base[i, 2].item())
+        #     projected_gravity = gymapi.Vec3(
+        #         base_pos[0]-self.projected_gravity[i, 0].item(), base_pos[1]-self.projected_gravity[i, 1].item(), base_pos[2]+self.projected_gravity[i, 2].item())
+        #     # draw projected gravity vector
+        #     gymutil.draw_line(base_position, projected_gravity, gymapi.Vec3(0, 1, 0), self.gym, self.viewer, self.envs[i])
+        #     gymutil.draw_line(base_position, normal_vector, gymapi.Vec3(1, 0, 0), self.gym, self.viewer, self.envs[i])
     
     def push_robots(self):
         max_vel = self.cfg.domain_rand.max_push_vel_xy
