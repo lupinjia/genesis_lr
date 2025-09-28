@@ -22,13 +22,8 @@ genesis_lr is a training framework for robot control based on RL (Reinforcement 
 | Name  | Gensis | IsaacGym | Real Robot | Video |
 | ----- | ------ | -------- | ---------  | ----- |
 | Walk These Ways | ✅ | ✅ | ✅ | [video_link](https://www.bilibili.com/video/BV1FPedzZEdi/) |
-| Robust Terrain Traversal | ❌ | ✅ |
-
-:::{note}
-Updated 2025/09/16
-
-Currently (genesis-world v0.3.3), the heightfield terrain of Genesis will cause abnormal collision behavior. So it's not viable to train terrain traversal policies using Genesis.
-:::
+| One-Stage Teacher-Student | ✅ | ✅ |
+| |
 
 ```{toctree}
 :maxdepth: 1

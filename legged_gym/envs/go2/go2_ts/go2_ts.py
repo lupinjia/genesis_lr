@@ -77,9 +77,7 @@ class Go2TS(LeggedRobot):
             critic_obs = torch.cat(
                 (
                     critic_obs,                         # previous
-                    self.simulator.thigh_contact_states,  # contact states of thighs, 4
-                    self.simulator.calf_contact_states,   # contact states of calfs, 4
-                    self.simulator.foot_contact_states,   # contact states of feet, 4
+                    self.simulator.link_contact_states,  # contact states of thighs, calfs and feet (4+4+4)=12
                 ),
                 dim=-1,
             )
@@ -121,9 +119,7 @@ class Go2TS(LeggedRobot):
                 self.privileged_obs_buf = torch.cat(
                     (
                         self.privileged_obs_buf,                   # previous
-                        self.simulator.thigh_contact_states,  # contact states of thighs, 4
-                        self.simulator.calf_contact_states,   # contact states of calfs, 4
-                        self.simulator.foot_contact_states,   # contact states of feet, 4
+                        self.simulator.link_contact_states,        # contact states of thighs, calfs and feet (4+4+4)=12
                     ),
                     dim=-1,
                 )
@@ -249,7 +245,6 @@ class Go2TS(LeggedRobot):
             self.simulator.get_heights()
             if self.cfg.terrain.obtain_terrain_info_around_feet:
                 self.simulator.calc_terrain_info_around_feet()
-            self.simulator.calc_terrain_info_around_base()
         if self.cfg.domain_rand.push_robots and (self.common_step_counter % self.cfg.domain_rand.push_interval == 0):
             self.simulator.push_robots()
     
@@ -342,11 +337,13 @@ class Go2TS(LeggedRobot):
     def _reward_foot_clearance(self):
         """
         Encourage feet to be close to desired height while swinging
+        
+        Attention: using torch.max(self.simulator.height_around_feet) will cause reward value jumping, bad for learning
         """
         foot_vel_xy_norm = torch.norm(self.simulator.feet_vel[:, :, :2], dim=-1)
         clearance_error = torch.sum(
             foot_vel_xy_norm * torch.square(
-                self.simulator.feet_pos[:, :, 2] - torch.max(self.simulator.height_around_feet, dim=-1).values -
+                self.simulator.feet_pos[:, :, 2] - torch.mean(self.simulator.height_around_feet, dim=-1) -
                 self.cfg.rewards.foot_clearance_target -
                 self.cfg.rewards.foot_height_offset
             ), dim=-1
@@ -361,14 +358,3 @@ class Go2TS(LeggedRobot):
             self.simulator.dof_pos[:, hip_joint_indices] - 
             self.simulator.default_dof_pos[:, hip_joint_indices]), dim=-1)
         return dof_pos_error
-    
-    def _reward_tracking_orientation(self):
-        # Encourage base to be aligned with terrain normal vector
-        gravity_x_error = torch.square(self.simulator.normal_vector_around_base[:, 0] 
-                                       + self.simulator.projected_gravity[:, 0])
-        gravity_y_error = torch.square(self.simulator.normal_vector_around_base[:, 1] 
-                                       + self.simulator.projected_gravity[:, 1])
-        gravity_z_error = torch.square(self.simulator.normal_vector_around_base[:, 2] 
-                                       - self.simulator.projected_gravity[:, 2])
-        gravity_error = gravity_x_error + gravity_y_error + gravity_z_error
-        return torch.exp(-gravity_error / self.cfg.rewards.orientation_tracking_sigma)

@@ -83,6 +83,7 @@ class LeggedRobotCfg(BaseConfig):
         terminate_after_contacts_on = []
         fix_base_link = False    # fix base link to the world
         obtain_link_contact_states = False
+        contact_state_link_names = ["thigh", "calf", "foot"]
         # For Genesis
         links_to_keep = []          # links that are not merged because of fixed joints
         dof_names = ["joint_a", "joint_b"]

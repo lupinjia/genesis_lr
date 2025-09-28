@@ -15,8 +15,8 @@ class Go2TSCfg( LeggedRobotCfg ):
         env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        # mesh_type = "heightfield" # for genesis
-        mesh_type = "trimesh"  # for isaacgym
+        mesh_type = "heightfield" # for genesis
+        # mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
         border_size = 10.0 # [m]
         curriculum = True
@@ -65,8 +65,7 @@ class Go2TSCfg( LeggedRobotCfg ):
         name = "go2"
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
         obtain_link_contact_states = True
-        thigh_name = "thigh"
-        calf_name = "calf"
+        contact_state_link_names = ["thigh", "calf", "foot"]
         foot_name = "foot"
         penalize_contacts_on = ["thigh", "calf", "base", "Head"]
         terminate_after_contacts_on = []
@@ -91,7 +90,7 @@ class Go2TSCfg( LeggedRobotCfg ):
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
         base_height_target = 0.34
-        foot_clearance_target = 0.05 # desired foot clearance above ground [m]
+        foot_clearance_target = 0.07 # desired foot clearance above ground [m]
         foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
         base_height_tracking_sigma = 0.05
@@ -99,15 +98,14 @@ class Go2TSCfg( LeggedRobotCfg ):
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
-            dof_pos_limits = -10.0
+            dof_pos_limits = -5.0
             collision = -1.0
             # command tracking
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
-            base_height = 0.6
-            tracking_orientation = 0.4
+            base_height = 0.2
             # smooth
-            lin_vel_z = -0.5
+            lin_vel_z = -2.0
             ang_vel_xy = -0.05
             dof_vel = -2.e-5
             dof_acc = -2.e-7
@@ -116,9 +114,8 @@ class Go2TSCfg( LeggedRobotCfg ):
             torques = -2.e-4
             # gait
             feet_air_time = 1.0
-            foot_clearance = 0.4
-            hip_pos = -0.5
-            stand_still = -1.0
+            foot_clearance = 0.2
+            hip_pos = -0.1
 
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
@@ -165,9 +162,9 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticTS"
         algorithm_class_name = "PPO_TS"
-        run_name = 'gym'
+        run_name = 'gs'
         experiment_name = 'go2_ts'
         save_interval = 500
-        load_run = "Sep19_23-00-21_gym"
+        load_run = "Sep28_17-01-19_gs"
         checkpoint = -1
         max_iterations = 2500
