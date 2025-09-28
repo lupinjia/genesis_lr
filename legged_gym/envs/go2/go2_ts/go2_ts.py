@@ -44,9 +44,9 @@ class Go2TS(LeggedRobot):
     def compute_observations(self):
         self.last_obs_buf = self.obs_buf.clone().detach()
         self.obs_buf = torch.cat((
-            self.simulator.base_ang_vel * self.obs_scales.ang_vel,                   # 3
-            self.simulator.projected_gravity,                                         # 3
             self.commands[:, :3] * self.commands_scale,                     # 3
+            self.simulator.projected_gravity,                                         # 3
+            self.simulator.base_ang_vel * self.obs_scales.ang_vel,                   # 3
             (self.simulator.dof_pos - self.simulator.default_dof_pos) *
             self.obs_scales.dof_pos,  # num_dofs
             self.simulator.dof_vel * self.obs_scales.dof_vel,                         # num_dofs
@@ -70,12 +70,18 @@ class Go2TS(LeggedRobot):
         # Critic observation
         critic_obs = torch.cat((
             self.obs_buf,                 # num_observations
-            domain_randomization_info,    # 35
-            # self.exp_C_frc_fl,
-            # self.exp_C_frc_fr,
-            # self.exp_C_frc_rl,
-            # self.exp_C_frc_rr,
+            domain_randomization_info,    # 34
         ), dim=-1)
+        if self.cfg.asset.obtain_link_contact_states:
+            critic_obs = torch.cat(
+                (
+                    critic_obs,                         # previous
+                    self.simulator.thigh_contact_states,  # contact states of thighs, 4
+                    self.simulator.calf_contact_states,   # contact states of calfs, 4
+                    self.simulator.foot_contact_states,   # contact states of feet, 4
+                ),
+                dim=-1,
+            )
         if self.cfg.terrain.measure_heights: # 81
             heights = torch.clip(self.simulator.base_pos[:, 2].unsqueeze(
                 1) - 0.5 - self.simulator.measured_heights, -1, 1.) * self.obs_scales.height_measurements
@@ -103,12 +109,22 @@ class Go2TS(LeggedRobot):
         if self.num_privileged_obs is not None:
             self.privileged_obs_buf = torch.cat(
                 (
-                    domain_randomization_info,                          # 35
+                    domain_randomization_info,                       # 34
                     self.simulator.height_around_feet.flatten(1,2),  # 9*number of feet
                     self.simulator.normal_vector_around_feet,        # 3*number of feet
                 ),
                 dim=-1,
             )
+            if self.cfg.asset.obtain_link_contact_states:
+                self.privileged_obs_buf = torch.cat(
+                    (
+                        self.privileged_obs_buf,                   # previous
+                        self.simulator.thigh_contact_states,  # contact states of thighs, 4
+                        self.simulator.calf_contact_states,   # contact states of calfs, 4
+                        self.simulator.foot_contact_states,   # contact states of feet, 4
+                    ),
+                    dim=-1,
+                )
 
     def _init_buffers(self):
         super()._init_buffers()
@@ -229,9 +245,78 @@ class Go2TS(LeggedRobot):
 
         if self.cfg.terrain.measure_heights:
             self.simulator.get_heights()
-            self.simulator.calc_terrain_info_around_feet()
+            if self.cfg.terrain.obtain_terrain_info_around_feet:
+                self.simulator.calc_terrain_info_around_feet()
+            self.simulator.calc_terrain_info_around_base()
         if self.cfg.domain_rand.push_robots and (self.common_step_counter % self.cfg.domain_rand.push_interval == 0):
             self.simulator.push_robots()
+    
+    def _uniped_periodic_gait(self, foot_type):
+        # q_frc and q_spd
+        if foot_type == "FL":
+            q_frc = torch.norm(
+                self.simulator.link_contact_forces[:, 
+                                    self.simulator.feet_indices[0], :], dim=-1).view(-1, 1)
+            q_spd = torch.norm(
+                self.simulator.feet_vel[:, 0, :], dim=-1).view(-1, 1) # sequence of feet_pos is FL, FR, RL, RR
+            # size: num_envs; need to reshape to (num_envs, 1), or there will be error due to broadcasting
+            # modulo phi over 1.0 to get cicular phi in [0, 1.0]
+            phi = (self.phi + self.theta[:, 0].unsqueeze(1)) % 1.0
+        elif foot_type == "FR":
+            q_frc = torch.norm(
+                self.simulator.link_contact_forces[:, 
+                                    self.simulator.feet_indices[1], :], dim=-1).view(-1, 1)
+            q_spd = torch.norm(
+                self.simulator.feet_vel[:, 1, :], dim=-1).view(-1, 1)
+            # modulo phi over 1.0 to get cicular phi in [0, 1.0]
+            phi = (self.phi + self.theta[:, 1].unsqueeze(1)) % 1.0
+        elif foot_type == "RL":
+            q_frc = torch.norm(
+                self.simulator.link_contact_forces[:, 
+                                    self.simulator.feet_indices[2], :], dim=-1).view(-1, 1)
+            q_spd = torch.norm(
+                self.simulator.feet_vel[:, 2, :], dim=-1).view(-1, 1)
+            # modulo phi over 1.0 to get cicular phi in [0, 1.0]
+            phi = (self.phi + self.theta[:, 2].unsqueeze(1)) % 1.0
+        elif foot_type == "RR":
+            q_frc = torch.norm(
+                self.simulator.link_contact_forces[:, 
+                                    self.simulator.feet_indices[3], :], dim=-1).view(-1, 1)
+            q_spd = torch.norm(
+                self.simulator.feet_vel[:, 3, :], dim=-1).view(-1, 1)
+            # modulo phi over 1.0 to get cicular phi in [0, 1.0]
+            phi = (self.phi + self.theta[:, 3].unsqueeze(1)) % 1.0
+        
+        phi *= 2 * torch.pi  # convert phi to radians
+        ''' ***** Step Gait Indicator ***** '''
+        exp_C_frc = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
+        exp_C_spd = torch.zeros(self.num_envs, 1, dtype=torch.float, device=self.device)
+            
+        swing_indices = (phi >= self.a_swing) & (phi < self.b_swing)
+        swing_indices = swing_indices.nonzero(as_tuple=False).flatten()
+        stance_indices = (phi >= self.b_swing) & (phi < self.b_stance)
+        stance_indices = stance_indices.nonzero(as_tuple=False).flatten()
+        exp_C_frc[swing_indices, :] = -1
+        exp_C_spd[swing_indices, :] = 0
+        exp_C_frc[stance_indices, :] = 0
+        exp_C_spd[stance_indices, :] = -1
+
+        return exp_C_spd * q_spd + exp_C_frc * q_frc, \
+            exp_C_spd.type(dtype=torch.float), exp_C_frc.type(dtype=torch.float)
+    
+    def _reward_quad_periodic_gait(self):
+        quad_reward_fl, self.exp_C_spd_fl, self.exp_C_frc_fl = self._uniped_periodic_gait(
+            "FL")
+        quad_reward_fr, self.exp_C_spd_fr, self.exp_C_frc_fr = self._uniped_periodic_gait(
+            "FR")
+        quad_reward_rl, self.exp_C_spd_rl, self.exp_C_frc_rl = self._uniped_periodic_gait(
+            "RL")
+        quad_reward_rr, self.exp_C_spd_rr, self.exp_C_frc_rr = self._uniped_periodic_gait(
+            "RR")
+        # reward for the whole body
+        quad_reward = quad_reward_fl.flatten() + quad_reward_fr.flatten() + \
+            quad_reward_rl.flatten() + quad_reward_rr.flatten()
+        return torch.exp(quad_reward)
             
     def _reward_base_height(self):
         # Penalize base height away from target
@@ -274,3 +359,14 @@ class Go2TS(LeggedRobot):
             self.simulator.dof_pos[:, hip_joint_indices] - 
             self.simulator.default_dof_pos[:, hip_joint_indices]), dim=-1)
         return dof_pos_error
+    
+    def _reward_tracking_orientation(self):
+        # Encourage base to be aligned with terrain normal vector
+        gravity_x_error = torch.square(self.simulator.normal_vector_around_base[:, 0] 
+                                       + self.simulator.projected_gravity[:, 0])
+        gravity_y_error = torch.square(self.simulator.normal_vector_around_base[:, 1] 
+                                       + self.simulator.projected_gravity[:, 1])
+        gravity_z_error = torch.square(self.simulator.normal_vector_around_base[:, 2] 
+                                       - self.simulator.projected_gravity[:, 2])
+        gravity_error = gravity_x_error + gravity_y_error + gravity_z_error
+        return torch.exp(-gravity_error / self.cfg.rewards.orientation_tracking_sigma)

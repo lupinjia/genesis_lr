@@ -267,10 +267,13 @@ class GenesisSimulator(Simulator):
         )
         
         # Terrain information around feet
-        self.normal_vector_around_feet = torch.zeros(
-            self.num_envs, len(self.feet_indices) * 3, dtype=torch.float, device=self.device, requires_grad=False)
-        self.height_around_feet = torch.zeros(
-            self.num_envs, len(self.feet_indices), 9, dtype=torch.float, device=self.device, requires_grad=False)
+        if self.cfg.terrain.obtain_terrain_info_around_feet:
+            self.normal_vector_around_feet = torch.zeros(
+                self.num_envs, len(self.feet_indices) * 3, dtype=torch.float, device=self.device, requires_grad=False)
+            self.height_around_feet = torch.zeros(
+                self.num_envs, len(self.feet_indices), 9, dtype=torch.float, device=self.device, requires_grad=False)
+        self.normal_vector_around_base = torch.zeros(
+            self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
 
         self.default_dof_pos = torch.tensor(
             [self.cfg.init_state.default_joint_angles[name]
@@ -424,6 +427,7 @@ class GenesisSimulator(Simulator):
     
     def calc_terrain_info_around_feet(self):
         """ Finds neighboring points around each foot for terrain height measurement."""
+        # Foot positions
         foot_points = self.feet_pos + self.cfg.terrain.border_size
         foot_points = (foot_points/self.cfg.terrain.horizontal_scale).long()
         # px and py for 4 feet, num_envs*len(feet_indices)
@@ -453,6 +457,23 @@ class GenesisSimulator(Simulator):
         # Calculate height around feet
         for i in range(9):
             self.height_around_feet[:, :, i] = eval(f'heights{i+1}').view(self.num_envs, -1)[:] * self.cfg.terrain.vertical_scale
+    
+    def calc_terrain_info_around_base(self):
+        """ Calculates terrain information around the base of the robot."""
+        front_height = self.measured_heights[:, self.front_point_index]
+        rear_height = self.measured_heights[:, self.rear_point_index]
+        left_height = self.measured_heights[:, self.left_point_index]
+        right_height = self.measured_heights[:, self.right_point_index]
+
+        # compute the height gradients along x and y direction
+        dx = ((front_height - rear_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
+        dy = ((left_height - right_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
+        # compute the normal vector
+        self.normal_vector_around_base = torch.cat(
+            (dx, dy, -1*torch.ones_like(dx)), dim=-1).to(self.device)
+        # normalize the vector
+        self.normal_vector_around_base /= torch.norm(
+            self.normal_vector_around_base, dim=-1, keepdim=True)
         
     def draw_debug_vis(self):
         """ Draws visualizations for dubugging (slows down simulation a lot).
@@ -470,6 +491,7 @@ class GenesisSimulator(Simulator):
         # height_points[0, :, 1] += self.base_pos[0, 1]
         # height_points[0, :, 2] = self.measured_heights[0, :]
         
+        # Height points around feet
         height_points = torch.zeros(self.num_envs, 9*len(self.feet_indices), 3, device=self.device)
         foot_points = self.feet_pos + self.cfg.terrain.border_size
         foot_points = (foot_points/self.cfg.terrain.horizontal_scale).long()
@@ -512,7 +534,7 @@ class GenesisSimulator(Simulator):
             height_points[0, i*9+8, 0] = (px+1).view(self.num_envs, -1)[0, i] * self.cfg.terrain.horizontal_scale - self.cfg.terrain.border_size
             height_points[0, i*9+8, 1] = (py-1).view(self.num_envs, -1)[0, i] * self.cfg.terrain.horizontal_scale - self.cfg.terrain.border_size
             height_points[0, i*9+8, 2] = heights9.view(self.num_envs, -1)[0, i] * self.cfg.terrain.vertical_scale
-            
+        
         # print(f"shape of height_points: ", height_points.shape) # (num_envs, num_points, 3)
         self.scene.draw_debug_spheres(height_points[0, :], radius=0.02, color=(1, 0, 0, 0.7))  # only draw for the first env
     
@@ -528,6 +550,15 @@ class GenesisSimulator(Simulator):
                          device=self.device, requires_grad=False)
         x = torch.tensor(self.cfg.terrain.measured_points_x,
                          device=self.device, requires_grad=False)
+        
+        # Get index of 4 points around robot base
+        self.num_x_points = x.shape[0]
+        self.num_y_points = y.shape[0]
+        self.front_point_index = (self.num_x_points + 1) // 2 * self.num_y_points + (self.num_y_points - 1) // 2
+        self.rear_point_index = ((self.num_x_points - 1) // 2 - 1) * self.num_y_points + (self.num_y_points - 1) // 2
+        self.left_point_index = (self.num_x_points - 1) // 2 * self.num_y_points + (self.num_y_points + 1) // 2
+        self.right_point_index = (self.num_x_points - 1) // 2 * self.num_y_points + (self.num_y_points - 1) // 2 - 1
+        
         grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
 
         self.num_height_points = grid_x.numel()
@@ -865,6 +896,9 @@ class IsaacGymSimulator(Simulator):
         termination_contact_names = []
         for name in self.cfg.asset.terminate_after_contacts_on:
             termination_contact_names.extend([s for s in body_names if name in s])
+        if self.cfg.asset.obtain_link_contact_states:
+            thigh_names = [s for s in body_names if self.cfg.asset.thigh_name in s]
+            calf_names = [s for s in body_names if self.cfg.asset.calf_name in s]
 
         base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot_gym + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
         self.base_init_state = torch.tensor(base_init_state_list, dtype=torch.float, 
@@ -910,6 +944,15 @@ class IsaacGymSimulator(Simulator):
         self.termination_contact_indices = torch.zeros(len(termination_contact_names), dtype=torch.long, device=self.device, requires_grad=False)
         for i in range(len(termination_contact_names)):
             self.termination_contact_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], termination_contact_names[i])
+        
+        if self.cfg.asset.obtain_link_contact_states:
+            self.thigh_indices = torch.zeros(len(thigh_names), dtype=torch.long, device=self.device, requires_grad=False)
+            for i in range(len(thigh_names)):
+                self.thigh_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], thigh_names[i])
+            self.calf_indices = torch.zeros(len(calf_names), dtype=torch.long, device=self.device, requires_grad=False)
+            for i in range(len(calf_names)):
+                self.calf_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], calf_names[i])
+        
         self.gym.prepare_sim(self.sim)
         # todo: read from config
         self.enable_viewer_sync = True
@@ -962,10 +1005,22 @@ class IsaacGymSimulator(Simulator):
         self.projected_gravity = quat_rotate_inverse(self.base_quat, self.global_gravity)
         
         # Terrain information around feet
-        self.normal_vector_around_feet = torch.zeros(
-            self.num_envs, len(self.feet_indices) * 3, dtype=torch.float, device=self.device, requires_grad=False)
-        self.height_around_feet = torch.zeros(
-            self.num_envs, len(self.feet_indices), 9, dtype=torch.float, device=self.device, requires_grad=False)
+        if self.cfg.terrain.obtain_terrain_info_around_feet:
+            self.normal_vector_around_feet = torch.zeros(
+                self.num_envs, len(self.feet_indices) * 3, dtype=torch.float, device=self.device, requires_grad=False)
+            self.height_around_feet = torch.zeros(
+                self.num_envs, len(self.feet_indices), 9, dtype=torch.float, device=self.device, requires_grad=False)
+        self.normal_vector_around_base = torch.zeros(
+            self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
+        
+        # Link contact state
+        if self.cfg.asset.obtain_link_contact_states:
+            self.thigh_contact_states = torch.zeros(
+                self.num_envs, len(self.thigh_indices), dtype=torch.float, device=self.device, requires_grad=False)
+            self.calf_contact_states = torch.zeros(
+                self.num_envs, len(self.calf_indices), dtype=torch.float, device=self.device, requires_grad=False)
+            self.foot_contact_states = torch.zeros(
+                self.num_envs, len(self.feet_indices), dtype=torch.float, device=self.device, requires_grad=False)
         
         # joint positions offsets and PD gains
         self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
@@ -1012,6 +1067,11 @@ class IsaacGymSimulator(Simulator):
             self.base_quat, self.global_gravity)
         self.feet_vel = self.rigid_body_states[:, self.feet_indices, 7:10]
         self.feet_pos = self.rigid_body_states[:, self.feet_indices, 0:3]
+        # Link contact state
+        if self.cfg.asset.obtain_link_contact_states:
+            self.thigh_contact_states = 1. * (torch.norm(self.link_contact_forces[:, self.thigh_indices, :], dim=-1) > 1.)
+            self.calf_contact_states = 1. * (torch.norm(self.link_contact_forces[:, self.calf_indices, :], dim=-1) > 1.)
+            self.foot_contact_states = 1. * (torch.norm(self.link_contact_forces[:, self.feet_indices, :], dim=-1) > 1.)
     
     def get_heights(self, env_ids=None):
         """ Samples heights of the terrain at required points around each robot.
@@ -1058,6 +1118,7 @@ class IsaacGymSimulator(Simulator):
     
     def calc_terrain_info_around_feet(self):
         """ Finds neighboring points around each foot for terrain height measurement."""
+        # Foot position
         foot_points = self.feet_pos + self.cfg.terrain.border_size
         foot_points = (foot_points/self.cfg.terrain.horizontal_scale).long()
         # px and py for 4 feet, num_envs*len(feet_indices)
@@ -1087,6 +1148,23 @@ class IsaacGymSimulator(Simulator):
         # Calculate height around feet
         for i in range(9):
             self.height_around_feet[:, :, i] = eval(f'heights{i+1}').view(self.num_envs, -1)[:] * self.cfg.terrain.vertical_scale
+
+    def calc_terrain_info_around_base(self):
+        """ Calculates terrain information around the base of the robot."""
+        front_height = self.measured_heights[:, self.front_point_index]
+        rear_height = self.measured_heights[:, self.rear_point_index]
+        left_height = self.measured_heights[:, self.left_point_index]
+        right_height = self.measured_heights[:, self.right_point_index]
+
+        # compute the height gradients along x and y direction
+        dx = ((front_height - rear_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
+        dy = ((left_height - right_height) / (self.cfg.terrain.horizontal_scale * 2)).unsqueeze(1)
+        # compute the normal vector
+        self.normal_vector_around_base = torch.cat(
+            (dx, dy, -1*torch.ones_like(dx)), dim=-1).to(self.device)
+        # normalize the vector
+        self.normal_vector_around_base /= torch.norm(
+            self.normal_vector_around_base, dim=-1, keepdim=True)
     
     def draw_debug_vis(self):
         """ Draws visualizations for dubugging (slows down simulation a lot).
@@ -1097,17 +1175,20 @@ class IsaacGymSimulator(Simulator):
             return
         self.gym.clear_lines(self.viewer)
         self.gym.refresh_rigid_body_state_tensor(self.sim)
-        sphere_geom = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(1, 1, 0))
         for i in range(self.num_envs):
             base_pos = (self.root_states[i, :3]).cpu().numpy()
-            heights = self.measured_heights[i].cpu().numpy()
-            height_points = quat_apply_yaw(self.base_quat[i].repeat(heights.shape[0]), self.height_points[i]).cpu().numpy()
-            for j in range(heights.shape[0]):
-                x = height_points[j, 0] + base_pos[0]
-                y = height_points[j, 1] + base_pos[1]
-                z = heights[j]
-                sphere_pose = gymapi.Transform(gymapi.Vec3(x, y, z), r=None)
-                gymutil.draw_lines(sphere_geom, self.gym, self.viewer, self.envs[i], sphere_pose) 
+            # draw normal vector
+            base_position = gymapi.Vec3(
+                base_pos[0], base_pos[1], base_pos[2])
+            normal_vector = gymapi.Vec3(
+                base_pos[0]+self.normal_vector_around_base[i, 0].item(), 
+                base_pos[1]+self.normal_vector_around_base[i, 1].item(), 
+                base_pos[2]+self.normal_vector_around_base[i, 2].item())
+            projected_gravity = gymapi.Vec3(
+                base_pos[0]-self.projected_gravity[i, 0].item(), base_pos[1]-self.projected_gravity[i, 1].item(), base_pos[2]+self.projected_gravity[i, 2].item())
+            # draw projected gravity vector
+            gymutil.draw_line(base_position, projected_gravity, gymapi.Vec3(0, 1, 0), self.gym, self.viewer, self.envs[i])
+            gymutil.draw_line(base_position, normal_vector, gymapi.Vec3(1, 0, 0), self.gym, self.viewer, self.envs[i])
     
     def push_robots(self):
         max_vel = self.cfg.domain_rand.max_push_vel_xy
@@ -1151,6 +1232,14 @@ class IsaacGymSimulator(Simulator):
                          device=self.device, requires_grad=False)
         x = torch.tensor(self.cfg.terrain.measured_points_x,
                          device=self.device, requires_grad=False)
+        # Get index of 4 points around robot base
+        self.num_x_points = x.shape[0]
+        self.num_y_points = y.shape[0]
+        self.front_point_index = (self.num_x_points + 1) // 2 * self.num_y_points + (self.num_y_points - 1) // 2
+        self.rear_point_index = ((self.num_x_points - 1) // 2 - 1) * self.num_y_points + (self.num_y_points - 1) // 2
+        self.left_point_index = (self.num_x_points - 1) // 2 * self.num_y_points + (self.num_y_points + 1) // 2
+        self.right_point_index = (self.num_x_points - 1) // 2 * self.num_y_points + (self.num_y_points - 1) // 2 - 1
+        
         grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
 
         self.num_height_points = grid_x.numel()

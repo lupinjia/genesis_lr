@@ -38,7 +38,7 @@ In our implementation, our interested behavior include `gait_period`, `base_heig
         ...
 ```
 
-Here, the gait specification method we use is based on the principle in [Siekmann $et al.$](https://arxiv.org/abs/2011.01387). Building upon their principle, we provide an extra step function implementaion to construct gait indicators:
+Here, the gait specification method we use is based on the principle in [Siekmann $\textit{et al.}$](https://arxiv.org/abs/2011.01387). Building upon their principle, we provide an extra step function implementaion to construct gait indicators:
 ```python
     # In go2_wtw.py
     def _uniped_periodic_gait(self, foot_type):
@@ -157,9 +157,57 @@ One can choose to use either `gait_function_type` (specified in `go2_wtw_config.
 
 To guide the policy to optimize towards the direction of achieving desired behavior, we need to construct rewards incorporating behavior parameters.
 
+For our implementation, behavior task rewards include `_reward_quad_periodic_gait`, `_reward_tracking_base_height`, `_reward_tracking_orientation` and `_reward_tracking_foot_clearance`. Readers can refer to go2_wtw.py for line-by-line codes.
+
+## Reward-based Curriculum
+
+As stated by Rudin $\textit{et al.}^{3}$, proper curriculum design can foster the learning process and help the robot learn more difficult behavior. We implement a reward-based curriculum similar to [legged_gym](https://github.com/leggedrobotics/legged_gym) to enlarge the range of behavior parameters only if the policy has mastered the behavior well enough in the current range:
+```python
+def _update_behavior_param_curriculum(self, env_ids):
+        if len(env_ids) == 0:
+            return
+        # Widen the behavior param range according to reward values
+        if torch.mean(self.episode_sums["quad_periodic_gait"][env_ids]) / \
+            self.max_episode_length > 0.8 * self.reward_scales["quad_periodic_gait"]: # 0.8 for step gait, 0.5 for smooth gait
+            # gait period
+            self.gait_period_range[0] = max(self.gait_period_range[0] - 0.05, self.gait_period_min)
+            self.gait_period_range[1] = min(self.gait_period_range[1] + 0.05, self.gait_period_max)
+            # gait number
+            self.num_gaits = min(self.num_gaits + 1, self.num_gait_max)
+
+        if torch.mean(self.episode_sums["tracking_base_height"][env_ids]) / \
+            self.max_episode_length > 0.9 * self.reward_scales["tracking_base_height"]:
+            self.base_height_target_range[0] = max(self.base_height_target_range[0] - 0.02, self.base_height_target_min)
+            self.base_height_target_range[1] = min(self.base_height_target_range[1] + 0.02, self.base_height_target_max)
+
+        if torch.mean(self.episode_sums["tracking_foot_clearance"][env_ids]) / \
+            self.max_episode_length > 0.8 * self.reward_scales["tracking_foot_clearance"]:
+            self.foot_clearance_target_range[0] = max(self.foot_clearance_target_range[0] - 0.01, 
+                                                      self.foot_clearance_target_min)
+            self.foot_clearance_target_range[1] = min(self.foot_clearance_target_range[1] + 0.01, 
+                                                      self.foot_clearance_target_max)
+        
+        if torch.mean(self.episode_sums["tracking_orientation"][env_ids]) / \
+            self.max_episode_length > 0.9 * self.reward_scales["tracking_orientation"]:
+            self.pitch_target_range[0] = max(self.pitch_target_range[0] - 0.05, self.pitch_target_min)
+            self.pitch_target_range[1] = min(self.pitch_target_range[1] + 0.05, self.pitch_target_max)
+```
+
+## Demonstration
+
+We provide an implementation of $ \textit{Walk These Ways} $ in `go2_deploy`, you can run it using the following command:
+```bash
+./go2_deploy wtw
+```
+
+The demo video is as follows:
+<video preload="auto" controls="True" width="100%">
+<source src="https://github.com/lupinjia/genesis_lr/raw/main/docs/source/_static/videos/wtw_demo.mp4" type="video/mp4">
+</video>
 
 
 ## References
 
 1. [Walk These Ways](https://gmargo11.github.io/walk-these-ways/)
 2. [Sim-to-Real Learning of All Common Bipedal Gaits via Periodic Reward Composition](https://arxiv.org/abs/2011.01387)
+3. [Learning to Walk in Minutes Using Massively Parallel Deep Reinforcement Learning](https://arxiv.org/abs/2109.11978)
