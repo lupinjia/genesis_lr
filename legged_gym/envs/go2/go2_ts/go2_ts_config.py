@@ -15,8 +15,8 @@ class Go2TSCfg( LeggedRobotCfg ):
         env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        # mesh_type = "heightfield" # for genesis
-        mesh_type = "trimesh"  # for isaacgym
+        mesh_type = "heightfield" # for genesis
+        # mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
         border_size = 10.0 # [m]
         curriculum = True

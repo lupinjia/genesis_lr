@@ -1,7 +1,7 @@
 from legged_gym import *
 if SIMULATOR == "genesis":
-    from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
-    from genesis.engine.solvers.avatar_solver import AvatarSolver
+    # from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
+    # from genesis.engine.solvers.avatar_solver import AvatarSolver
     from genesis.utils.geom import transform_by_quat, inv_quat
 elif SIMULATOR == "isaacgym":
     from isaacgym import gymtorch, gymapi, gymutil
@@ -90,17 +90,13 @@ class GenesisSimulator(Simulator):
                 enable_joint_limit=True,
                 enable_self_collision=self.cfg.asset.self_collisions_gs,
                 max_collision_pairs=self.cfg.sim.max_collision_pairs,
-                IK_max_targets=self.cfg.sim.IK_max_targets
+                IK_max_targets=self.cfg.sim.IK_max_targets,
+                batch_dofs_info=True,
+                batch_joints_info=True,
+                batch_links_info=True,
             ),
             show_viewer=not self.headless,
         )
-        # query rigid solver
-        for solver in self.scene.sim.solvers:
-            if not isinstance(solver, RigidSolver):
-                continue
-            elif isinstance(solver, AvatarSolver):
-                continue
-            self.rigid_solver = solver
 
         # add camera if needed
         if self.cfg.viewer.add_camera:
@@ -298,8 +294,8 @@ class GenesisSimulator(Simulator):
         self.batched_p_gains = self.p_gains[None, :].repeat(self.num_envs, 1)
         self.batched_d_gains = self.d_gains[None, :].repeat(self.num_envs, 1)
         # PD control params
-        self.robot.set_dofs_kp(self.p_gains, self.motors_dof_idx)
-        self.robot.set_dofs_kv(self.d_gains, self.motors_dof_idx)
+        self.robot.set_dofs_kp(self.batched_p_gains, self.motors_dof_idx)
+        self.robot.set_dofs_kv(self.batched_d_gains, self.motors_dof_idx)
 
     def step(self, actions):
         """Simulator steps, receiving actions from the agent"""
@@ -695,15 +691,13 @@ class GenesisSimulator(Simulator):
         ''' Randomize friction of all links'''
         min_friction, max_friction = self.cfg.domain_rand.friction_range
 
-        solver = self.rigid_solver
-
-        ratios = gs.rand((len(env_ids), 1), dtype=float).repeat(1, solver.n_geoms) \
+        ratios = gs.rand((len(env_ids), 1), dtype=float).repeat(1, self.robot.n_links) \
             * (max_friction - min_friction) + min_friction
         self._friction_values[env_ids] = ratios[:,
                                                 0].unsqueeze(1).detach().clone()
 
-        solver.set_geoms_friction_ratio(
-            ratios, torch.arange(0, solver.n_geoms), env_ids)
+        self.robot.set_friction_ratio(
+            ratios, torch.arange(0, self.robot.n_links), env_ids)
 
     def _randomize_base_mass(self, env_ids=None):
         ''' Randomize base mass'''
@@ -712,8 +706,7 @@ class GenesisSimulator(Simulator):
         added_mass = gs.rand((len(env_ids), 1), dtype=float) * \
             (max_mass - min_mass) + min_mass
         self._added_base_mass[env_ids] = added_mass[:].detach().clone()
-        self.rigid_solver.set_links_mass_shift(
-            added_mass, [base_link_id, ], env_ids)
+        self.robot.set_mass_shift(added_mass, [base_link_id, ], env_ids)
 
     def _randomize_com_displacement(self, env_ids):
         ''' Randomize center of mass displacement of the robot'''
@@ -732,17 +725,17 @@ class GenesisSimulator(Simulator):
         self._base_com_bias[env_ids] = com_displacement[:,
                                                         0, :].detach().clone()
 
-        self.rigid_solver.set_links_COM_shift(
+        self.robot.set_COM_shift(
             com_displacement, [base_link_id,], env_ids)
 
     def _randomize_joint_armature(self, env_ids):
         """ Randomize joint armature of the robot
         """
         min_armature, max_armature = self.cfg.domain_rand.joint_armature_range
-        armature = torch.rand((1,), dtype=torch.float, device=self.device) \
-            * (max_armature - min_armature) + min_armature  # scalar
-        self._joint_armature[env_ids, 0] = armature[0].detach().clone()
-        armature = armature.repeat(self.num_actions)  # repeat for all motors
+        armature = torch.rand((len(env_ids), 1), dtype=torch.float, device=self.device) \
+            * (max_armature - min_armature) + min_armature
+        self._joint_armature[env_ids, 0] = armature[:, 0].detach().clone()
+        armature = armature.repeat(1, self.num_actions)  # repeat for all motors
         self.robot.set_dofs_armature(
             armature, self.motors_dof_idx, envs_idx=env_ids)  # all environments share the same armature
         # This armature will be Refreshed when envs are reset
@@ -751,10 +744,10 @@ class GenesisSimulator(Simulator):
         """ Randomize joint friction of the robot
         """
         min_friction, max_friction = self.cfg.domain_rand.joint_friction_range
-        friction = torch.rand((1,), dtype=torch.float, device=self.device) \
+        friction = torch.rand((len(env_ids), 1), dtype=torch.float, device=self.device) \
             * (max_friction - min_friction) + min_friction
-        self._joint_friction[env_ids, 0] = friction[0].detach().clone()
-        friction = friction.repeat(self.num_actions)
+        self._joint_friction[env_ids, 0] = friction[:, 0].detach().clone()
+        friction = friction.repeat(1, self.num_actions)
         self.robot.set_dofs_stiffness(
             friction, self.motors_dof_idx, envs_idx=env_ids)
 
@@ -762,10 +755,10 @@ class GenesisSimulator(Simulator):
         """ Randomize joint damping of the robot
         """
         min_damping, max_damping = self.cfg.domain_rand.joint_damping_range
-        damping = torch.rand((1,), dtype=torch.float, device=self.device) \
+        damping = torch.rand((len(env_ids), 1), dtype=torch.float, device=self.device) \
             * (max_damping - min_damping) + min_damping
-        self._joint_damping[env_ids, 0] = damping[0].detach().clone()
-        damping = damping.repeat(self.num_actions)
+        self._joint_damping[env_ids, 0] = damping[:, 0].detach().clone()
+        damping = damping.repeat(1, self.num_actions)
         self.robot.set_dofs_damping(
             damping, self.motors_dof_idx, envs_idx=env_ids)
 
