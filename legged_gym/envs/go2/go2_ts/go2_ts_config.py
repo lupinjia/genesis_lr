@@ -11,6 +11,10 @@ class Go2TSCfg( LeggedRobotCfg ):
         c_frame_stack = 5
         single_critic_obs_len = num_observations + 34 + 81 + 12
         num_critic_obs = c_frame_stack * single_critic_obs_len
+        # Privileged_obs and critic_obs are seperated here
+        # privileged_obs contains information given to privileged encoder
+        # critic_obs contains information given to critic, including some privileged information
+        # This operation is to prevent the critic from receiving noisy input from the concatenation of current observation(noisy) and latent vector
         num_actions = 12
         env_spacing = 0.5
     
@@ -90,20 +94,17 @@ class Go2TSCfg( LeggedRobotCfg ):
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
         base_height_target = 0.34
-        foot_clearance_target = 0.07 # desired foot clearance above ground [m]
+        foot_clearance_target = 0.09 # desired foot clearance above ground [m]
         foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
-        base_height_tracking_sigma = 0.05
-        orientation_tracking_sigma = 0.1
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
-            dof_pos_limits = -5.0
+            dof_pos_limits = -2.0
             collision = -1.0
             # command tracking
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
-            base_height = 0.2
             # smooth
             lin_vel_z = -2.0
             ang_vel_xy = -0.05
@@ -115,7 +116,7 @@ class Go2TSCfg( LeggedRobotCfg ):
             # gait
             feet_air_time = 1.0
             foot_clearance = 0.2
-            hip_pos = -0.1
+            stand_still = -0.5
 
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
@@ -163,8 +164,8 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
         policy_class_name = "ActorCriticTS"
         algorithm_class_name = "PPO_TS"
         run_name = 'gs'
-        experiment_name = 'go2_ts'
+        experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Sep28_17-01-19_gs"
+        load_run = "Sep28_22-55-11_gs"
         checkpoint = -1
         max_iterations = 2500

@@ -33,17 +33,15 @@ import os
 from collections import deque
 import statistics
 
-import wandb
-from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 import torch
 
-from rsl_rl.algorithms import PPO_TS
-from rsl_rl.modules import ActorCriticTS
+from rsl_rl.algorithms import PPO_EE
+from rsl_rl.modules import ActorCriticEE
 from rsl_rl.env import VecEnv
 
 
-class TSRunner:
+class EERunner:
 
     def __init__(self,
                  env: VecEnv,
@@ -54,33 +52,28 @@ class TSRunner:
         self.cfg=train_cfg["runner"]
         self.alg_cfg = train_cfg["algorithm"]
         self.policy_cfg = train_cfg["policy"]
-        self.all_cfg = train_cfg
-        self.wandb_run_name = (
-            self.cfg["experiment_name"]
-            + "_"
-            + datetime.now().strftime("%b%d_%H-%M-%S")
-            + "_"
-            + self.cfg["run_name"]
-        )
         self.device = device
         self.env = env
-        actor_critic_class = eval(self.cfg["policy_class_name"]) # ActorCriticTS
-        actor_critic: ActorCriticTS = actor_critic_class( self.env.num_obs,
+        if self.env.num_privileged_obs is not None:
+            num_critic_obs = self.env.num_privileged_obs 
+        else:
+            num_critic_obs = self.env.num_obs
+        actor_critic_class = eval(self.cfg["policy_class_name"]) # ActorCriticEE
+        actor_critic: ActorCriticEE = actor_critic_class(
+                                                        num_critic_obs,
                                                         self.env.num_actions,
-                                                        self.env.num_privileged_obs,
-                                                        self.env.num_history_obs,
-                                                        self.env.num_latent_dims,
-                                                        self.env.num_critic_obs,
+                                                        self.env.num_estimator_features,
+                                                        self.env.num_estimator_labels,
                                                         **self.policy_cfg).to(self.device)
         alg_class = eval(self.cfg["algorithm_class_name"]) # PPO
-        self.alg: PPO_TS = alg_class(actor_critic, device=self.device, **self.alg_cfg)
+        self.alg: PPO_EE = alg_class(actor_critic, device=self.device, **self.alg_cfg)
         self.num_steps_per_env = self.cfg["num_steps_per_env"]
         self.save_interval = self.cfg["save_interval"]
 
         # init storage and model
         self.alg.init_storage(self.env.num_envs, self.num_steps_per_env, 
-                              [self.env.num_obs], [self.env.num_privileged_obs], 
-                              [self.env.num_history_obs], [self.env.num_critic_obs], [self.env.num_actions])
+                              [self.env.num_privileged_obs], [self.env.num_estimator_features],
+                              [self.env.num_estimator_labels], [self.env.num_actions])
 
         # Log
         self.log_dir = log_dir
@@ -94,18 +87,16 @@ class TSRunner:
     def learn(self, num_learning_iterations, init_at_random_ep_len=False):
         # initialize writer
         if self.log_dir is not None and self.writer is None:
-            wandb.init(
-                project="genesis_lr",
-                name=self.wandb_run_name,
-                sync_tensorboard=True,
-                config=self.all_cfg,
-            )
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.randint_like(self.env.episode_length_buf, high=int(self.env.max_episode_length))
-        obs, privileged_obs, obs_history, critic_obs = self.env.get_observations()
-        obs, privileged_obs, obs_history, critic_obs = obs.to(self.device), privileged_obs.to(self.device), \
-            obs_history.to(self.device), critic_obs.to(self.device)
+        estimator_features, estimator_labels, privileged_obs= self.env.get_observations()
+        critic_obs = privileged_obs if privileged_obs is not None else torch.cat((
+            estimator_features, 
+            estimator_labels,
+        ), dim=-1
+        )
+        estimator_features, estimator_labels, privileged_obs = estimator_features.to(self.device), estimator_labels.to(self.device), privileged_obs.to(self.device)
         self.alg.actor_critic.train() # switch to train mode (for dropout for example)
 
         ep_infos = []
@@ -120,10 +111,15 @@ class TSRunner:
             # Rollout
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
-                    actions = self.alg.act(obs, privileged_obs, obs_history, critic_obs)
-                    obs, privileged_obs, obs_history, critic_obs, rewards, dones, infos = self.env.step(actions)
-                    obs, privileged_obs, obs_history, rewards, dones, critic_obs = obs.to(self.device), \
-                        privileged_obs.to(self.device), obs_history.to(self.device), rewards.to(self.device), dones.to(self.device), critic_obs.to(self.device)
+                    actions = self.alg.act(estimator_features, critic_obs, estimator_labels)
+                    estimator_features, estimator_labels, privileged_obs, rewards, dones, infos = self.env.step(actions)
+                    critic_obs = privileged_obs if privileged_obs is not None else torch.cat((
+                        estimator_features, 
+                        estimator_labels,
+                        ), dim=-1
+                    )
+                    estimator_features, estimator_labels, critic_obs, rewards, dones = estimator_features.to(self.device), \
+                        estimator_labels.to(self.device), critic_obs.to(self.device), rewards.to(self.device), dones.to(self.device)
                     self.alg.process_env_step(rewards, dones, infos)
                     
                     if self.log_dir is not None:
@@ -145,7 +141,7 @@ class TSRunner:
                 start = stop
                 self.alg.compute_returns(critic_obs)
 
-            mean_value_loss, mean_surrogate_loss, mean_encoder_loss = self.alg.update()
+            mean_value_loss, mean_surrogate_loss, mean_estimator_loss = self.alg.update()
             stop = time.time()
             learn_time = stop - start
             if self.log_dir is not None:
@@ -181,9 +177,9 @@ class TSRunner:
 
         self.writer.add_scalar('Loss/value_function', locs['mean_value_loss'], locs['it'])
         self.writer.add_scalar('Loss/surrogate', locs['mean_surrogate_loss'], locs['it'])
-        self.writer.add_scalar('Loss/encoder', locs['mean_encoder_loss'], locs['it'])
+        self.writer.add_scalar('Loss/explicit estimation', locs['mean_estimator_loss'], locs['it'])
         self.writer.add_scalar('Loss/learning_rate', self.alg.learning_rate, locs['it'])
-        self.writer.add_scalar("Loss/history_encoder_learning_rate", self.alg.encoder_lr, locs['it'])
+        self.writer.add_scalar("Loss/estimator_learning_rate", self.alg.estimator_lr, locs['it'])
         self.writer.add_scalar('Policy/mean_noise_std', mean_std.item(), locs['it'])
         self.writer.add_scalar('Perf/total_fps', fps, locs['it'])
         self.writer.add_scalar('Perf/collection time', locs['collection_time'], locs['it'])
@@ -203,7 +199,7 @@ class TSRunner:
                             'collection_time']:.3f}s, learning {locs['learn_time']:.3f}s)\n"""
                           f"""{'Value function loss:':>{pad}} {locs['mean_value_loss']:.4f}\n"""
                           f"""{'Surrogate loss:':>{pad}} {locs['mean_surrogate_loss']:.4f}\n"""
-                          f"""{'Encoder loss:':>{pad}} {locs['mean_encoder_loss']:.4f}\n"""
+                          f"""{'Explicit Estimation loss:':>{pad}} {locs['mean_estimator_loss']:.4f}\n"""
                           f"""{'Mean action noise std:':>{pad}} {mean_std.item():.2f}\n"""
                           f"""{'Mean reward:':>{pad}} {statistics.mean(locs['rewbuffer']):.2f}\n"""
                           f"""{'Mean episode length:':>{pad}} {statistics.mean(locs['lenbuffer']):.2f}\n""")
@@ -244,9 +240,15 @@ class TSRunner:
             self.alg.optimizer.load_state_dict(loaded_dict['optimizer_state_dict'])
         self.current_learning_iteration = loaded_dict['iter']
         return loaded_dict['infos']
+    
+    def get_inference_estimator(self, device=None):
+        self.alg.actor_critic.eval() # switch to evaluation mode (dropout for example)
+        if device is not None:
+            self.alg.actor_critic.to(device)
+        return self.alg.actor_critic.est_inference
 
     def get_inference_policy(self, device=None):
         self.alg.actor_critic.eval() # switch to evaluation mode (dropout for example)
         if device is not None:
             self.alg.actor_critic.to(device)
-        return self.alg.actor_critic.act_student
+        return self.alg.actor_critic.act_inference

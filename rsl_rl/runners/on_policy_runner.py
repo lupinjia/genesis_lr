@@ -56,9 +56,9 @@ class OnPolicyRunner:
         self.policy_cfg = train_cfg["policy"]
         self.all_cfg = train_cfg
         self.wandb_run_name = (
-            datetime.now().strftime("%b%d_%H-%M-%S")
+            self.cfg["experiment_name"]
             + "_"
-            + self.cfg["experiment_name"]
+            + datetime.now().strftime("%b%d_%H-%M-%S")
             + "_"
             + self.cfg["run_name"]
         )

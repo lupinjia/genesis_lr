@@ -8,9 +8,9 @@ from legged_gym.utils.helpers import class_to_dict
 from legged_gym.utils.gs_utils import *
 from collections import deque
 
-class Go2TS(LeggedRobot):
+class Go2EE(LeggedRobot):
     def get_observations(self):
-        return self.obs_buf, self.privileged_obs_buf, self.obs_history, self.critic_obs_buf
+        return self.estimator_features_buf, self.estimator_labels_buf, self.privileged_obs_buf
 
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -27,23 +27,22 @@ class Go2TS(LeggedRobot):
 
         # return clipped obs, clipped states (None), rewards, dones and infos
         clip_obs = self.cfg.normalization.clip_observations
-        self.obs_buf = torch.clip(self.obs_buf, -clip_obs, clip_obs)
+        self.estimator_features_buf = torch.clip(self.estimator_features_buf, -clip_obs, clip_obs)
         if self.privileged_obs_buf is not None:
             self.privileged_obs_buf = torch.clip(
                 self.privileged_obs_buf, -clip_obs, clip_obs)
-        return self.obs_buf, self.privileged_obs_buf, self.obs_history, self.critic_obs_buf, \
+        return self.estimator_features_buf, self.estimator_labels_buf, self.privileged_obs_buf, \
             self.rew_buf, self.reset_buf, self.extras
 
     def reset(self):
         """ Reset all robots"""
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
-        obs, privileged_obs, obs_history, critic_obs, _, _, _ = self.step(torch.zeros(
+        estimator_features, estimator_labels, privileged_obs, _, _, _ = self.step(torch.zeros(
             self.num_envs, self.num_actions, device=self.device, requires_grad=False))
-        return obs, privileged_obs, obs_history, critic_obs
+        return estimator_features, estimator_labels, privileged_obs
 
     def compute_observations(self):
-        self.last_obs_buf = self.obs_buf.clone().detach()
-        self.obs_buf = torch.cat((
+        obs_buf = torch.cat((
             self.commands[:, :3] * self.commands_scale,                     # 3
             self.simulator.projected_gravity,                                         # 3
             self.simulator.base_ang_vel * self.obs_scales.ang_vel,                   # 3
@@ -69,24 +68,22 @@ class Go2TS(LeggedRobot):
             ), dim=-1)
         
         # Critic observation
-        critic_obs = torch.cat((
-            self.obs_buf,                 # num_observations
+        single_critic_obs = torch.cat((
+            obs_buf,                 # num_observations
             domain_randomization_info,    # 34
         ), dim=-1)
         if self.cfg.asset.obtain_link_contact_states:
-            critic_obs = torch.cat(
-                (
-                    critic_obs,                         # previous
-                    self.simulator.link_contact_states,  # contact states of thighs, calfs and feet (4+4+4)=12
-                ),
+            single_critic_obs = torch.cat(
+                (single_critic_obs, self.simulator.link_contact_states,  # contact states of thighs, calfs and feet (4+4+4)=12
+                    ),
                 dim=-1,
             )
         if self.cfg.terrain.measure_heights: # 81
             heights = torch.clip(self.simulator.base_pos[:, 2].unsqueeze(
                 1) - 0.5 - self.simulator.measured_heights, -1, 1.) * self.obs_scales.height_measurements
-            critic_obs = torch.cat((critic_obs, heights), dim=-1)
-        self.critic_obs_deque.append(critic_obs)
-        self.critic_obs_buf = torch.cat(
+            single_critic_obs = torch.cat((single_critic_obs, heights), dim=-1)
+        self.critic_obs_deque.append(single_critic_obs)
+        self.privileged_obs_buf = torch.cat(
             [self.critic_obs_deque[i]
                 for i in range(self.critic_obs_deque.maxlen)],
             dim=-1,
@@ -94,60 +91,42 @@ class Go2TS(LeggedRobot):
         
         # add noise if needed
         if self.add_noise:
-            self.obs_buf += (2 * torch.rand_like(self.obs_buf) -
+            obs_buf += (2 * torch.rand_like(obs_buf) -
                              1) * self.noise_scale_vec
 
-        # push last_obs_buf to obs_history
-        self.obs_history_deque.append(self.last_obs_buf)
-        self.obs_history = torch.cat(
+        # push obs_buf to obs_history
+        self.obs_history_deque.append(obs_buf)
+        self.estimator_features_buf = torch.cat(
             [self.obs_history_deque[i]
                 for i in range(self.obs_history_deque.maxlen)],
             dim=-1,
         )
         
-        # Privileged observation, for privileged encoder
-        if self.num_privileged_obs is not None:
-            self.privileged_obs_buf = torch.cat(
-                (
-                    domain_randomization_info,                       # 34
-                    self.simulator.height_around_feet.flatten(1,2),  # 9*number of feet
-                    self.simulator.normal_vector_around_feet,        # 3*number of feet
-                ),
-                dim=-1,
-            )
-            if self.cfg.asset.obtain_link_contact_states:
-                self.privileged_obs_buf = torch.cat(
-                    (
-                        self.privileged_obs_buf,                   # previous
-                        self.simulator.link_contact_states,        # contact states of thighs, calfs and feet (4+4+4)=12
-                    ),
-                    dim=-1,
-                )
+        # Estimator labels
+        self.estimator_labels_buf = torch.cat((
+            self.simulator.base_lin_vel * self.obs_scales.lin_vel,         # 3
+            1.0 * (torch.norm(
+                self.simulator.link_contact_forces[:, self.simulator.feet_indices, :], dim=-1) 
+                   > 1.0),  # 4
+            (self.simulator.feet_pos[:, :, 2] -
+            torch.mean(self.simulator.height_around_feet, dim=-1) -
+            self.cfg.rewards.foot_height_offset),  # 4
+        ), dim=-1)
 
     def _init_buffers(self):
         super()._init_buffers()
         # obs_history
-        self.last_obs_buf = torch.zeros(
-            (self.num_envs, self.cfg.env.num_observations),
-            dtype=torch.float,
-            device=self.device,
-        )
         self.obs_history_deque = deque(maxlen=self.cfg.env.frame_stack)
         for _ in range(self.cfg.env.frame_stack):
             self.obs_history_deque.append(
                 torch.zeros(
                     self.num_envs,
-                    self.cfg.env.num_observations,
+                    self.cfg.env.num_single_obs,
                     dtype=torch.float,
                     device=self.device,
                 )
             )
         # critic observation buffer
-        self.critic_obs_buf = torch.zeros(
-            (self.num_envs, self.cfg.env.num_critic_obs),
-            dtype=torch.float,
-            device=self.device,
-        )
         self.critic_obs_deque = deque(maxlen=self.cfg.env.c_frame_stack)
         for _ in range(self.cfg.env.c_frame_stack):
             self.critic_obs_deque.append(
@@ -191,9 +170,8 @@ class Go2TS(LeggedRobot):
 
     def _parse_cfg(self, cfg):
         super()._parse_cfg(cfg)
-        self.num_history_obs = self.cfg.env.num_history_obs
-        self.num_latent_dims = self.cfg.env.num_latent_dims
-        self.num_critic_obs = self.cfg.env.num_critic_obs
+        self.num_estimator_features = cfg.env.num_estimator_features
+        self.num_estimator_labels = cfg.env.num_estimator_labels
         # determine privileged observation offset to normalize privileged observations
         self.friction_value_offset = (self.cfg.domain_rand.friction_range[0] + 
                                       self.cfg.domain_rand.friction_range[1]) / 2  # mean value
@@ -258,7 +236,7 @@ class Go2TS(LeggedRobot):
         Returns:
             [torch.Tensor]: Vector of scales used to multiply a uniform distribution in [-1, 1]
         """
-        noise_vec = torch.zeros_like(self.obs_buf[0])
+        noise_vec = torch.zeros(self.cfg.env.num_single_obs, device=self.device)
         self.add_noise = self.cfg.noise.add_noise
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level

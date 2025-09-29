@@ -1,38 +1,36 @@
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
-class GO2RoughCfg( LeggedRobotCfg ):
-    
+class Go2EECfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
-        num_observations = 48 + 121 # robot_state + terrain_heights
+        num_single_obs = 45
+        frame_stack = 5    # number of frames to stack for obs_history
+        num_estimator_features = int(num_single_obs * frame_stack)
+        num_estimator_labels = 11
+        c_frame_stack = 5
+        single_critic_obs_len = num_single_obs + 34 + 81 + 12
+        num_privileged_obs = c_frame_stack * single_critic_obs_len
+        # privileged_obs here is actually critic_obs
         num_actions = 12
-        num_privileged_obs = 67 + 121
-        env_spacing = 3.  # not used with heightfields/trimeshes
+        env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        mesh_type = "heightfield" # none, plane, heightfield
-        horizontal_scale = 0.1 # [m]. if use smaller horizontal scale, need to decrease terrain_length and terrain_width, or it will compile very slowly.
-        vertical_scale = 0.005 # [m]
-        border_size = 5 # [m]. implemented a out_of_bound detection, so border_size can be smaller
-        curriculum = True
+        mesh_type = "heightfield" # for genesis
+        # mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
+        border_size = 10.0 # [m]
+        curriculum = True
         # rough terrain only:
+        obtain_terrain_info_around_feet = True
         measure_heights = True
-        # measured_points_x = [-1.0, -0.8, -0.6, -0.4, -0.2, 0., 0.2, 0.4, 0.6, 0.8, 1.0]
-        # measured_points_y = [-1.0, -0.8, -0.6, -0.4, -0.2, 0., 0.2, 0.4, 0.6, 0.8, 1.0]
-        measured_points_x = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
-        measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
-        selected = False # select a unique terrain type and pass all arguments
-        terrain_kwargs = None # Dict of arguments for selected terrain
-        max_init_terrain_level = 1 # starting curriculum state
-        terrain_length = 8.0 # 
-        terrain_width = 8.0  # 
-        num_rows = 8  # number of terrain rows (levels)
-        num_cols = 5  # number of terrain cols (types)
+        measured_points_x = [-0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4] # 9x9=81
+        measured_points_y = [-0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4]
+        terrain_length = 8.0
+        terrain_width = 8.0
+        num_rows = 10  # number of terrain rows (levels)
+        num_cols = 10  # number of terrain cols (types)
         # terrain types: [smooth slope, rough slope, stairs up, stairs down, discrete]
-        terrain_proportions = [0.2, 0.2, 0.2, 0.2, 0.2]
-        # trimesh only:
-        slope_treshold = 0.75 # slopes above this threshold will be corrected to vertical surfaces
+        terrain_proportions = [0.2, 0.1, 0.25, 0.25, 0.2]
         
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]
@@ -63,8 +61,16 @@ class GO2RoughCfg( LeggedRobotCfg ):
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
 
     class asset( LeggedRobotCfg.asset ):
+        # Common: 
+        name = "go2"
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
-        dof_names = [        # specify yhe sequence of actions
+        obtain_link_contact_states = True
+        contact_state_link_names = ["thigh", "calf", "foot"]
+        foot_name = "foot"
+        penalize_contacts_on = ["thigh", "calf", "base", "Head"]
+        terminate_after_contacts_on = []
+        # Genesis: 
+        dof_names = [        # specify the sequence of actions
             'FR_hip_joint',
             'FR_thigh_joint',
             'FR_calf_joint',
@@ -77,39 +83,40 @@ class GO2RoughCfg( LeggedRobotCfg ):
             'RL_hip_joint',
             'RL_thigh_joint',
             'RL_calf_joint',]
-        foot_name = ["foot"]
-        penalize_contacts_on = ["base", "Head", "thigh", "calf", "hip"]
-        terminate_after_contacts_on = ["base", "Head"]
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
-        self_collisions = True
+        # IsaacGym:
+        flip_visual_attachments = False
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.36
-        only_positive_rewards = False
+        base_height_target = 0.34
+        foot_clearance_target = 0.09 # desired foot clearance above ground [m]
+        foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
+        foot_clearance_tracking_sigma = 0.01
+        only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
-            termination = -200.0
-            dof_pos_limits = -10.0
+            dof_pos_limits = -2.0
             collision = -1.0
             # command tracking
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
             # smooth
             lin_vel_z = -2.0
-            base_height = -1.0
             ang_vel_xy = -0.05
-            orientation = -1.0
-            dof_vel = -5.e-4
+            dof_vel = -2.e-5
             dof_acc = -2.e-7
             action_rate = -0.01
+            action_smoothness = -0.01
             torques = -2.e-4
             # gait
             feet_air_time = 1.0
-    
+            foot_clearance = 0.2
+            stand_still = -0.5
+
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
-        max_curriculum = 1.
+        max_curriculum = 1.0
         num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
         resampling_time = 10.  # time before command are changed[s]
         heading_command = True # if true: compute ang vel command from heading error
@@ -118,8 +125,8 @@ class GO2RoughCfg( LeggedRobotCfg ):
             lin_vel_y = [-1.0, 1.0]   # min max [m/s]
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
             heading = [-3.14, 3.14]
-    
-    class domain_rand( LeggedRobotCfg.domain_rand ):
+            
+    class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = True
         friction_range = [0.2, 1.7]
         randomize_base_mass = True
@@ -128,15 +135,33 @@ class GO2RoughCfg( LeggedRobotCfg ):
         push_interval_s = 15
         max_push_vel_xy = 1.
         randomize_com_displacement = True
-        com_displacement_range = [-0.01, 0.01]
+        com_displacement_range = [-0.03, 0.03]
+        randomize_pd_gain = True
+        kp_range = [0.8, 1.2]
+        kd_range = [0.8, 1.2]
+        randomize_joint_armature = True
+        joint_armature_range = [0.015, 0.025]  # [N*m*s/rad]
+        randomize_joint_stiffness = True
+        joint_stiffness_range = [0.01, 0.02]
+        randomize_joint_damping = True
+        joint_damping_range = [0.25, 0.3]
 
-class GO2RoughCfgPPO( LeggedRobotCfgPPO ):
+class Go2EECfgPPO( LeggedRobotCfgPPO ):
+    seed = 1
+    runner_class_name = "EERunner" # Explicit Estimator Runner
+    class policy( LeggedRobotCfgPPO.policy ):
+        actor_hidden_dims = [512, 256, 128]
+        critic_hidden_dims = [1024, 256, 128]
+        estimator_hidden_dims = [256, 128]
     class algorithm( LeggedRobotCfgPPO.algorithm ):
-        entropy_coef = 0.01
+        estimator_lr = 1e-3
+        num_estimator_epochs = 1
     class runner( LeggedRobotCfgPPO.runner ):
-        run_name = ''
+        policy_class_name = "ActorCriticEE"
+        algorithm_class_name = "PPO_EE"
+        run_name = 'gs'
         experiment_name = 'go2_rough'
-        save_interval = 100
-        load_run = "Feb10_18-54-11_"
+        save_interval = 500
+        load_run = "Sep29_10-38-04_gs"
         checkpoint = -1
         max_iterations = 2500

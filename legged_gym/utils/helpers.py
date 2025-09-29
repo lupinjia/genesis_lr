@@ -145,19 +145,20 @@ def export_policy_as_jit(actor_critic, path, prefix=None, export_type=None):
             model = copy.deepcopy(actor_critic.history_encoder).to('cpu')
             traced_script_module = torch.jit.script(model)
             traced_script_module.save(encoder_path)
+        elif export_type == "ee":
+            model_path = os.path.join(path, prefix + "_policy.pt")
+            model = copy.deepcopy(actor_critic.actor).to('cpu')
+            traced_script_module = torch.jit.script(model)
+            traced_script_module.save(model_path)
+            estimator_path = os.path.join(path, prefix + "_estimator.pt")
+            model = copy.deepcopy(actor_critic.estimator).to('cpu')
+            traced_script_module = torch.jit.script(model)
+            traced_script_module.save(estimator_path)
         else:
             path = os.path.join(path, prefix + '.pt')
             model = copy.deepcopy(actor_critic.actor).to('cpu')
             traced_script_module = torch.jit.script(model)
             traced_script_module.save(path)
-    
-def export_estimator_as_jit(estimator, path):
-    os.makedirs(path, exist_ok=True)
-    path = os.path.join(path, "estimator_1.pt")
-    model = copy.deepcopy(estimator).to("cpu")
-    traced_script_module = torch.jit.script(model)
-    traced_script_module.save(path)
-
 
 class PolicyExporterLSTM(torch.nn.Module):
     def __init__(self, actor_critic):
