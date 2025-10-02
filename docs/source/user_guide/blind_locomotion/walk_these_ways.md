@@ -211,6 +211,10 @@ The demo video is as follows:
 <source src="https://github.com/lupinjia/genesis_lr/raw/main/docs/source/_static/videos/wtw_demo.mp4" type="video/mp4">
 </video>
 
+<video preload="auto" controls="True" width="100%">
+<source src="https://github.com/lupinjia/genesis_lr/raw/main/docs/source/_static/videos/wtw_demo_real.mp4" type="video/mp4">
+</video>
+
 
 ## References
 

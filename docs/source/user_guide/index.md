@@ -17,6 +17,7 @@ getting_started/code_architecture
 blind_locomotion/walk_these_ways
 blind_locomotion/teacher_student
 blind_locomotion/explicit_estimator
+blind_locomotion/dreamwaq
 blind_locomotion/sim2real_skills
 ```
 
