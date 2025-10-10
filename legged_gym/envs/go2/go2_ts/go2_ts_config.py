@@ -5,7 +5,7 @@ class Go2TSCfg( LeggedRobotCfg ):
         num_envs = 4096
         num_observations = 45  # num_obs
         num_privileged_obs = 94
-        frame_stack = 4    # number of frames to stack for obs_history
+        frame_stack = 20    # number of frames to stack for obs_history
         num_history_obs = int(num_observations * frame_stack)
         num_latent_dims = num_privileged_obs
         c_frame_stack = 5
@@ -156,16 +156,22 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
     class policy( LeggedRobotCfgPPO.policy ):
         critic_hidden_dims = [1024, 256, 128]
         privilege_encoder_hidden_dims = [256, 128]
-        history_encoder_hidden_dims = [256, 128]
+        history_encoder_type = "MLP" # "MLP" or "TCN"
+        history_encoder_hidden_dims = [256, 128]       # for MLP
+        history_encoder_channel_dims = [1, 1, 1, 1]    # for TCN
+        history_encoder_dilation = [1, 1, 2, 1]        # for TCN
+        history_encoder_stride = [1, 2, 1, 2]          # for TCN
+        history_encoder_final_layer_dim = 128          # for TCN
+        kernel_size = 5
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         encoder_lr = 1e-3
-        num_encoder_epochs = 1
+        num_encoder_epochs = 2
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticTS"
         algorithm_class_name = "PPO_TS"
-        run_name = 'gs'
+        run_name = 'gs_ts_MLP'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Sep28_22-55-11_gs"
+        load_run = "Oct10_16-33-50_gs_ts_TCN"
         checkpoint = -1
-        max_iterations = 2500
+        max_iterations = 2000

@@ -1,33 +1,3 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: BSD-3-Clause
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this
-# list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-# this list of conditions and the following disclaimer in the documentation
-# and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# Copyright (c) 2021 ETH Zurich, Nikita Rudin
-
 import numpy as np
 
 import torch
@@ -52,7 +22,13 @@ class ActorCriticTS(nn.Module):
                  actor_hidden_dims=[256, 256, 256],
                  critic_hidden_dims=[256, 256, 256],
                  privilege_encoder_hidden_dims=[256, 128],
+                 history_encoder_type="MLP", # "MLP" or "TCN"
                  history_encoder_hidden_dims=[256, 128],
+                 history_encoder_channel_dims=[30, 30, 30, 30, 30, 30], # for TCN
+                 history_encoder_dilation=[1, 1, 2, 1, 4, 1], # for TCN
+                 history_encoder_stride=[1, 2, 1, 2, 1, 2], # for TCN
+                 history_encoder_final_layer_dim=128, # for TCN
+                 kernel_size=5,
                  activation='elu',
                  init_noise_std=1.0,
                  **kwargs):
@@ -83,19 +59,44 @@ class ActorCriticTS(nn.Module):
         self.privilege_encoder = nn.Sequential(*privilege_encoder_layers)
 
         # History encoder
+        self.history_encoder_type = history_encoder_type
         history_encoder_layers = []
-        history_encoder_layers.append(
-            nn.Linear(num_history_encoder_input, history_encoder_hidden_dims[0]))
-        history_encoder_layers.append(activation)
-        for l in range(len(history_encoder_hidden_dims)):
-            if l == len(history_encoder_hidden_dims) - 1:
+        if history_encoder_type == "MLP":
+            history_encoder_layers.append(
+                nn.Linear(num_history_encoder_input, history_encoder_hidden_dims[0]))
+            history_encoder_layers.append(activation)
+            for l in range(len(history_encoder_hidden_dims)):
+                if l == len(history_encoder_hidden_dims) - 1:
+                    history_encoder_layers.append(
+                        nn.Linear(history_encoder_hidden_dims[l], num_latent_dims))
+                else:
+                    history_encoder_layers.append(
+                        nn.Linear(history_encoder_hidden_dims[l], history_encoder_hidden_dims[l + 1]))
+                    history_encoder_layers.append(activation)
+            self.history_encoder = nn.Sequential(*history_encoder_layers)
+        elif history_encoder_type == "TCN":
+            in_channels = 1
+            for l in range(len(history_encoder_channel_dims)):
+                out_channels = history_encoder_channel_dims[l]
+                padding = history_encoder_dilation[l]*(kernel_size-1)// 2
                 history_encoder_layers.append(
-                    nn.Linear(history_encoder_hidden_dims[l], num_latent_dims))
-            else:
-                history_encoder_layers.append(
-                    nn.Linear(history_encoder_hidden_dims[l], history_encoder_hidden_dims[l + 1]))
-                history_encoder_layers.append(activation)
-        self.history_encoder = nn.Sequential(*history_encoder_layers)
+                    nn.Conv1d(in_channels, out_channels, kernel_size,
+                              stride=history_encoder_stride[l],
+                              padding=padding,
+                              dilation=history_encoder_dilation[l])
+                )
+                in_channels = out_channels
+                num_history_encoder_input = (num_history_encoder_input - 1) // history_encoder_stride[l] + 1
+            history_encoder_output_layer = nn.Linear(
+                num_history_encoder_input * history_encoder_channel_dims[-1], history_encoder_final_layer_dim)
+            history_encoder_output_activation = activation
+            history_encoder_latent_layer = nn.Linear(
+                history_encoder_final_layer_dim, num_latent_dims)
+            history_encoder_layers.append(nn.Flatten())
+            history_encoder_layers.append(history_encoder_output_layer)
+            history_encoder_layers.append(history_encoder_output_activation)
+            history_encoder_layers.append(history_encoder_latent_layer)
+            self.history_encoder = nn.Sequential(*history_encoder_layers)
 
         # Policy
         actor_layers = []
@@ -125,7 +126,7 @@ class ActorCriticTS(nn.Module):
         self.critic = nn.Sequential(*critic_layers)
 
         print(f"Privilege Encoder MLP: {self.privilege_encoder}")
-        print(f"History Encoder MLP: {self.history_encoder}")
+        print(f"History Encoder: {self.history_encoder}")
         print(f"Actor MLP: {self.actor}")
         print(f"Critic MLP: {self.critic}")
 
@@ -183,6 +184,9 @@ class ActorCriticTS(nn.Module):
         return actions_mean
 
     def act_student(self, observations, observation_history, **kwargs):
+        if self.history_encoder_type == "TCN":
+            # input shape (batch_size, obs_history_len) -> (batch_size, 1, obs_history_len)
+            observation_history = observation_history.unsqueeze(1)
         latent = self.history_encoder(observation_history)
         actions_mean = self.actor(torch.cat(
             (
