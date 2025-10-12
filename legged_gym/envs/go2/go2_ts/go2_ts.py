@@ -42,7 +42,6 @@ class Go2TS(LeggedRobot):
         return obs, privileged_obs, obs_history, critic_obs
 
     def compute_observations(self):
-        self.last_obs_buf = self.obs_buf.clone().detach()
         self.obs_buf = torch.cat((
             self.commands[:, :3] * self.commands_scale,                     # 3
             self.simulator.projected_gravity,                                         # 3
@@ -97,8 +96,8 @@ class Go2TS(LeggedRobot):
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) -
                              1) * self.noise_scale_vec
 
-        # push last_obs_buf to obs_history
-        self.obs_history_deque.append(self.last_obs_buf)
+        # push obs_buf to obs_history
+        self.obs_history_deque.append(self.obs_buf)
         self.obs_history = torch.cat(
             [self.obs_history_deque[i]
                 for i in range(self.obs_history_deque.maxlen)],
@@ -127,11 +126,6 @@ class Go2TS(LeggedRobot):
     def _init_buffers(self):
         super()._init_buffers()
         # obs_history
-        self.last_obs_buf = torch.zeros(
-            (self.num_envs, self.cfg.env.num_observations),
-            dtype=torch.float,
-            device=self.device,
-        )
         self.obs_history_deque = deque(maxlen=self.cfg.env.frame_stack)
         for _ in range(self.cfg.env.frame_stack):
             self.obs_history_deque.append(

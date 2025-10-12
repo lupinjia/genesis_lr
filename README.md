@@ -39,7 +39,7 @@ Please refer to the [doc of this repo](https://genesis-lr.readthedocs.io/en/late
 | Robot | Sim | Real |
 |--- | --- | --- |
 | Unitree Go2 (Walk These Ways) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) |
-| Bipedal Walker | ![](./test_resources/bipedal_walker_flat.gif) | |
+| Bipedal Walker | ![](./docs/source/_static/images/bipedal_walker_flat.gif) | |
 
 ## 🙏 Acknowledgements
 
