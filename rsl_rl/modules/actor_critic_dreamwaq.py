@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #
@@ -33,26 +33,52 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.distributions import Normal
-from torch.nn.modules import rnn
 
-class ActorCritic(nn.Module):
+from rsl_rl.modules.actor_critic_ts import ActorCriticTS
+from .actor_critic import get_activation
+from .vae import VAE
+
+'''
+Actor-Critic for Hybrid Implicit-Explicit architecture using VAE
+'''
+
+class ActorCriticDreamWaQ(nn.Module):
     is_recurrent = False
-    def __init__(self,  num_actor_obs,
-                        num_critic_obs,
-                        num_actions,
-                        actor_hidden_dims=[256, 256, 256],
-                        critic_hidden_dims=[256, 256, 256],
-                        activation='elu',
-                        init_noise_std=1.0,
-                        **kwargs):
+
+    def __init__(self,  
+                 num_actor_obs,
+                 num_actions,
+                 num_privileged_obs, 
+                 num_history_input,
+                 num_latent_dims,
+                 num_explicit_dims,
+                 num_decoder_output,
+                 actor_hidden_dims=[256, 256, 256],
+                 critic_hidden_dims=[256, 256, 256],
+                 encoder_hidden_dims=[256, 128],
+                 decoder_hidden_dims=[256, 128],
+                 activation='elu',
+                 init_noise_std=1.0,
+                 **kwargs):
         if kwargs:
-            print("ActorCritic.__init__ got unexpected arguments, which will be ignored: " + str([key for key in kwargs.keys()]))
-        super(ActorCritic, self).__init__()
+            print("ActorCritic.__init__ got unexpected arguments, which will be ignored: " +
+                  str([key for key in kwargs.keys()]))
+        super(ActorCriticDreamWaQ, self).__init__()
 
+        # Input dimension of actor (proprioceptive obs + base_lin_vel(estimated) + latent)
+        mlp_input_dim_a = num_actor_obs + num_explicit_dims + num_latent_dims
+        # Input dimension of actor (proprioceptive obs + base_lin_vel(true) + latent)
+        mlp_input_dim_c = num_privileged_obs
+        
+        self.vae = VAE(num_history_input = num_history_input,
+                       num_latent_dims=num_latent_dims,
+                       num_explicit_dims=num_explicit_dims,
+                       num_decoder_output=num_decoder_output,
+                       activation=activation,
+                       encoder_hidden_dims=encoder_hidden_dims,
+                       decoder_hidden_dims=decoder_hidden_dims)
+        
         activation = get_activation(activation)
-
-        mlp_input_dim_a = num_actor_obs
-        mlp_input_dim_c = num_critic_obs
 
         # Policy
         actor_layers = []
@@ -60,9 +86,11 @@ class ActorCritic(nn.Module):
         actor_layers.append(activation)
         for l in range(len(actor_hidden_dims)):
             if l == len(actor_hidden_dims) - 1:
-                actor_layers.append(nn.Linear(actor_hidden_dims[l], num_actions))
+                actor_layers.append(
+                    nn.Linear(actor_hidden_dims[l], num_actions))
             else:
-                actor_layers.append(nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1]))
+                actor_layers.append(
+                    nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1]))
                 actor_layers.append(activation)
         self.actor = nn.Sequential(*actor_layers)
 
@@ -74,10 +102,13 @@ class ActorCritic(nn.Module):
             if l == len(critic_hidden_dims) - 1:
                 critic_layers.append(nn.Linear(critic_hidden_dims[l], 1))
             else:
-                critic_layers.append(nn.Linear(critic_hidden_dims[l], critic_hidden_dims[l + 1]))
+                critic_layers.append(
+                    nn.Linear(critic_hidden_dims[l], critic_hidden_dims[l + 1]))
                 critic_layers.append(activation)
         self.critic = nn.Sequential(*critic_layers)
 
+        print(f"Encoder MLP: {self.vae.encoder}")
+        print(f"Decoder MLP: {self.vae.decoder}")
         print(f"Actor MLP: {self.actor}")
         print(f"Critic MLP: {self.critic}")
 
@@ -86,10 +117,6 @@ class ActorCritic(nn.Module):
         self.distribution = None
         # disable args validation for speedup
         Normal.set_default_validate_args = False
-        
-        # seems that we get better performance without init
-        # self.init_memory_weights(self.memory_a, 0.001, 0.)
-        # self.init_memory_weights(self.memory_c, 0.001, 0.)
 
     @staticmethod
     # not used at the moment
@@ -97,13 +124,12 @@ class ActorCritic(nn.Module):
         [torch.nn.init.orthogonal_(module.weight, gain=scales[idx]) for idx, module in
          enumerate(mod for mod in sequential if isinstance(mod, nn.Linear))]
 
-
     def reset(self, dones=None):
         pass
 
     def forward(self):
         raise NotImplementedError
-    
+
     @property
     def action_mean(self):
         return self.distribution.mean
@@ -111,50 +137,36 @@ class ActorCritic(nn.Module):
     @property
     def action_std(self):
         return self.distribution.stddev
-    
+
     @property
     def entropy(self):
         return self.distribution.entropy().sum(dim=-1)
 
-    def update_distribution(self, observations):
-        mean = self.actor(observations)
+    def update_distribution(self, observations, obs_history):
+        """When inferring the actor, use the current observation and latent"""
+        z, vel = self.vae.sample(obs_history)
+        sampled_out = torch.cat((z, vel), dim=-1)
+        mean = self.actor(torch.cat(
+            (
+            observations, sampled_out
+            ), dim=-1))
         self.distribution = Normal(mean, mean*0. + self.std)
 
-    def act(self, observations, **kwargs):
-        self.update_distribution(observations)
+    def act(self, observations, obs_history, **kwargs):
+        self.update_distribution(observations, obs_history)
         return self.distribution.sample()
-    
+
     def get_actions_log_prob(self, actions):
         return self.distribution.log_prob(actions).sum(dim=-1)
 
-    def act_inference(self, observations):
-        actions_mean = self.actor(observations)
+    def act_inference(self, observations, observation_history, **kwargs):
+        mean_out = self.vae.inference(observation_history)
+        actions_mean = self.actor(torch.cat(
+            (
+            observations, mean_out
+            ), dim=-1))
         return actions_mean
 
-    def evaluate(self, critic_observations, **kwargs):
-        value = self.critic(critic_observations)
+    def evaluate(self, critic_obs, **kwargs):
+        value = self.critic(critic_obs)
         return value
-
-def get_activation(act_name):
-    if act_name == "elu":
-        return nn.ELU()
-    elif act_name == "selu":
-        return nn.SELU()
-    elif act_name == "relu":
-        return nn.ReLU()
-    elif act_name == "crelu":
-        return nn.ReLU()
-    elif act_name == "lrelu":
-        return nn.LeakyReLU()
-    elif act_name == "tanh":
-        return nn.Tanh()
-    elif act_name == "sigmoid":
-        return nn.Sigmoid()
-    else:
-        print("invalid activation function!")
-        return None
-
-def init_orhtogonal(m):
-    if isinstance(m, nn.Linear):
-        nn.init.orthogonal_(m.weight)
-        m.bias.data.fill_(0.01)

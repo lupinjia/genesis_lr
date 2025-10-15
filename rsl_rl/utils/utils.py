@@ -45,7 +45,7 @@ def split_and_pad_trajectories(tensor, dones):
                  [b6, 0, 0, 0]     |    [True, False, False, False],
                 ]                  | ]    
             
-    Assumes that the inputy has the following dimension order: [time, number of envs, aditional dimensions]
+    Assumes that the inputy has the following dimension order: [time, number of envs, additional dimensions]
     """
     dones = dones.clone()
     dones[-1] = 1

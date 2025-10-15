@@ -3,7 +3,7 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 class GO2Cfg( LeggedRobotCfg ):
     
     class env( LeggedRobotCfg.env ):
-        num_envs = 4096
+        num_envs = 100
         num_observations = 45 # 48 for only sim, 45 for deployment
         num_privileged_obs = None
         num_actions = 12
@@ -125,13 +125,13 @@ class GO2CfgPPO( LeggedRobotCfgPPO ):
         critic_hidden_dims = [512, 256, 128]
         activation = 'elu' # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
         # only for 'ActorCriticRecurrent':
-        # rnn_type = 'lstm'
-        # rnn_hidden_size = 512
-        # rnn_num_layers = 1
+        rnn_type = 'lstm'
+        rnn_hidden_size = 512
+        rnn_num_layers = 1
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
-        policy_class_name = 'ActorCritic'
+        policy_class_name = 'ActorCriticRecurrent'
         run_name = 'with_lin'
         experiment_name = 'go2'
         save_interval = 200

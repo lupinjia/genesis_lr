@@ -42,6 +42,9 @@ from legged_gym.envs.go2.go2_ts.go2_ts_config import Go2TSCfg, Go2TSCfgPPO
 # go2_ee(explicit estimator)
 from legged_gym.envs.go2.go2_ee.go2_ee import Go2EE
 from legged_gym.envs.go2.go2_ee.go2_ee_config import Go2EECfg, Go2EECfgPPO
+# go2_dreamwaq
+from legged_gym.envs.go2.go2_dreamwaq.go2_dreamwaq import Go2DreamWaQ
+from legged_gym.envs.go2.go2_dreamwaq.go2_dreamwaq_config import Go2DreamWaQCfg, Go2DreamWaQCfgPPO
 # bipedal_walker
 # from legged_gym.envs.bipedal_walker.bipedal_walker_config import BipedalWalkerCfg, BipedalWalkerCfgPPO
 # from legged_gym.envs.bipedal_walker.bipedal_walker import BipedalWalker
@@ -56,5 +59,6 @@ task_registry.register( "go2", GO2, GO2Cfg(), GO2CfgPPO())
 task_registry.register( "go2_wtw", GO2WTW, GO2WTWCfg(), GO2WTWCfgPPO())
 task_registry.register( "go2_ts", Go2TS, Go2TSCfg(), Go2TSCfgPPO())
 task_registry.register( "go2_ee", Go2EE, Go2EECfg(), Go2EECfgPPO())
+task_registry.register( "go2_dreamwaq", Go2DreamWaQ, Go2DreamWaQCfg(), Go2DreamWaQCfgPPO())
 # task_registry.register( "go2_sysid", GO2SysID, GO2SysIDCfg(), GO2CfgPPO())
 # task_registry.register( "bipedal_walker", BipedalWalker, BipedalWalkerCfg(), BipedalWalkerCfgPPO())

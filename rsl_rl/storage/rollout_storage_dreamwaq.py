@@ -31,13 +31,17 @@
 import torch
 import numpy as np
 
-class RolloutStorageTS:
+from rsl_rl.utils import split_and_pad_trajectories
+
+class RolloutStorageDreamWaQ:
+    """For MLP-decoder version DreamWaQ"""
     class Transition:
         def __init__(self):
             self.observations = None
             self.privileged_observations = None
             self.observation_histories = None
-            self.critic_observations = None
+            self.explicit_info_labels = None
+            self.next_states = None
             self.actions = None
             self.rewards = None
             self.dones = None
@@ -51,14 +55,14 @@ class RolloutStorageTS:
             self.__init__()
 
     def __init__(self, num_envs, num_transitions_per_env, obs_shape, 
-                 privileged_obs_shape, obs_history_shape, critic_obs_shape, actions_shape, device='cpu'):
+                 privileged_obs_shape, obs_history_shape, explicit_info_shape, next_states_shape,
+                 actions_shape, device='cpu'):
 
         self.device = device
 
         self.obs_shape = obs_shape
         self.privileged_obs_shape = privileged_obs_shape
         self.obs_history_shape = obs_history_shape
-        self.critic_obs_shape = critic_obs_shape
         self.actions_shape = actions_shape
 
         # Core
@@ -66,7 +70,8 @@ class RolloutStorageTS:
         # privileged observations are necessary
         self.privileged_observations = torch.zeros(num_transitions_per_env, num_envs, *privileged_obs_shape, device=self.device)
         self.observation_histories = torch.zeros(num_transitions_per_env, num_envs, *obs_history_shape, device=self.device)
-        self.critic_observations = torch.zeros(num_transitions_per_env, num_envs, *critic_obs_shape, device=self.device)
+        self.explicit_info_labels = torch.zeros(num_transitions_per_env, num_envs, *explicit_info_shape, device=self.device)
+        self.next_states = torch.zeros(num_transitions_per_env, num_envs, *next_states_shape, device=self.device)
         self.rewards = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device)
         self.actions = torch.zeros(num_transitions_per_env, num_envs, *actions_shape, device=self.device)
         self.dones = torch.zeros(num_transitions_per_env, num_envs, 1, device=self.device).byte()
@@ -94,8 +99,9 @@ class RolloutStorageTS:
         self.observations[self.step].copy_(transition.observations)
         self.privileged_observations[self.step].copy_(transition.privileged_observations)
         self.observation_histories[self.step].copy_(transition.observation_histories)
-        self.critic_observations[self.step].copy_(transition.critic_observations)
         self.actions[self.step].copy_(transition.actions)
+        self.explicit_info_labels[self.step].copy_(transition.explicit_info_labels)
+        self.next_states[self.step].copy_(transition.next_states)
         self.rewards[self.step].copy_(transition.rewards.view(-1, 1))
         self.dones[self.step].copy_(transition.dones.view(-1, 1))
         self.values[self.step].copy_(transition.values)
@@ -157,7 +163,9 @@ class RolloutStorageTS:
         observations = self.observations.flatten(0, 1)
         privileged_observations = self.privileged_observations.flatten(0, 1)
         obs_histories = self.observation_histories.flatten(0, 1)
-        critic_observations = self.critic_observations.flatten(0, 1)
+        explicit_info_labels = self.explicit_info_labels.flatten(0, 1)
+        next_states = self.next_states.flatten(0, 1)
+        dones = self.dones.flatten(0, 1)
 
         actions = self.actions.flatten(0, 1)
         values = self.values.flatten(0, 1)
@@ -177,7 +185,9 @@ class RolloutStorageTS:
                 obs_batch = observations[batch_idx]
                 privileged_obs_batch = privileged_observations[batch_idx]
                 obs_histories_batch = obs_histories[batch_idx]
-                critic_obs_batch = critic_observations[batch_idx]
+                explicit_info_labels_batch = explicit_info_labels[batch_idx]
+                next_state_batch = next_states[batch_idx]
+                terminated_batch = 1.0 - dones[batch_idx]
                 actions_batch = actions[batch_idx]
                 target_values_batch = values[batch_idx]
                 returns_batch = returns[batch_idx]
@@ -185,6 +195,6 @@ class RolloutStorageTS:
                 advantages_batch = advantages[batch_idx]
                 old_mu_batch = old_mu[batch_idx]
                 old_sigma_batch = old_sigma[batch_idx]
-                yield obs_batch, privileged_obs_batch, obs_histories_batch, critic_obs_batch, \
-                    actions_batch, target_values_batch, advantages_batch, returns_batch, \
+                yield obs_batch, privileged_obs_batch, obs_histories_batch, explicit_info_labels_batch, next_state_batch, \
+                    terminated_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, \
                        old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (None, None), None

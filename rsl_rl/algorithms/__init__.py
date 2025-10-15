@@ -31,3 +31,4 @@
 from .ppo import PPO
 from .ppo_ts import PPO_TS
 from .ppo_ee import PPO_EE
+from .ppo_dreamwaq import PPO_DreamWaQ

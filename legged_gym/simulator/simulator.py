@@ -618,11 +618,14 @@ class GenesisSimulator(Simulator):
             self.base_pos[:, 1] <= self.terrain_y_range[0])
         out_of_bound_buf = x_out_of_bound | y_out_of_bound
         env_ids = out_of_bound_buf.nonzero(as_tuple=False).flatten()
-        # reset base position to initial position
-        self.base_pos[env_ids] = self.base_init_pos
-        self.base_pos[env_ids] += self.env_origins[env_ids]
-        self.robot.set_pos(
-            self.base_pos[env_ids], zero_velocity=False, envs_idx=env_ids)
+        if len(env_ids) == 0:
+            return
+        else:
+            # reset base position to initial position
+            self.base_pos[env_ids] = self.base_init_pos
+            self.base_pos[env_ids] += self.env_origins[env_ids]
+            self.robot.set_pos(
+                self.base_pos[env_ids], zero_velocity=False, envs_idx=env_ids)
     
     def _create_heightfield(self):
         """ Adds a heightfield terrain to the simulation, sets parameters based on the cfg.

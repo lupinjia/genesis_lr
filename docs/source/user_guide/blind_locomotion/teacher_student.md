@@ -201,7 +201,7 @@ In `go2_ts.py`, we use two buffers for `critic_obs(input of the critic network)`
 
 ## Ablation of TCN(Temporal Convolutional Network)
 
-In the original teacher-student paper$^1$, authors used TCN as the body of student encoder and compared its computation efficiency with GRU. Here we did an ablation study of TCN to see whether using TCN can bring lower prediction loss and faster training speed. We set history length to 100(corresponds to a history window of 2s). As shown in below two figures, we can see that the total reward is almost the same, but the encoder loss(i.e. prediction loss) of TCN is larger. Meanwhile, the collection_time(time to collect data for one iteration) of both are the same, yet the learning_time(time to update neural networks) of TCN is nearly five times as much as that of MLP. 
+In the original teacher-student paper$^1$, authors used [TCN](https://github.com/locuslab/TCN/tree/master) as the body of student encoder and compared its computation efficiency with GRU. Here we did an ablation study of TCN to see whether using TCN can bring lower prediction loss and faster training speed. We set history length to 100(corresponds to a history window of 2s). As shown in below two figures, we can see that the total reward is almost the same, but the encoder loss(i.e. prediction loss) of TCN is larger. Meanwhile, the collection_time(time to collect data for one iteration) of both are the same, yet the learning_time(time to update neural networks) of TCN is nearly five times as much as that of MLP. 
 
 ```{figure} ../../_static/images/ts_total_reward_comparison.png
 ```
