@@ -156,5 +156,20 @@ def get_activation(act_name):
 
 def init_orhtogonal(m):
     if isinstance(m, nn.Linear):
-        nn.init.orthogonal_(m.weight)
-        m.bias.data.fill_(0.01)
+        nn.init.orthogonal_(m.weight, 0.01)
+        m.bias.data.fill_(0.)
+
+def init_normal(module):
+    if type(module) == nn.Linear:
+        nn.init.normal_(module.weight, mean=0, std=0.01)
+        nn.init.zeros_(module.bias)
+
+def init_constant(module):
+    if type(module) == nn.Linear:
+        nn.init.constant_(module.weight, 1)
+        nn.init.zeros_(module.bias)
+
+def init_xavier(module):
+    if type(module) == nn.Linear:
+        nn.init.xavier_uniform_(module.weight)
+        nn.init.zeros_(module.bias)

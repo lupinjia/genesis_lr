@@ -35,7 +35,7 @@ import torch.nn as nn
 from torch.distributions import Normal
 
 from rsl_rl.modules.actor_critic_ts import ActorCriticTS
-from .actor_critic import get_activation
+from .actor_critic import get_activation, init_orhtogonal, init_normal, init_constant, init_xavier
 from .vae import VAE
 
 '''
@@ -144,12 +144,19 @@ class ActorCriticDreamWaQ(nn.Module):
 
     def update_distribution(self, observations, obs_history):
         """When inferring the actor, use the current observation and latent"""
-        z, vel = self.vae.sample(obs_history)
+        sampled_out, distribution_params = self.vae.sample(obs_history)
+        z, vel = sampled_out
+        latent_mu, latent_var, vel_mu, vel_var = distribution_params
         sampled_out = torch.cat((z, vel), dim=-1)
         mean = self.actor(torch.cat(
             (
             observations, sampled_out
             ), dim=-1))
+        # # Check if NaN exists in mean
+        # if torch.isnan(mean).any():
+        #     print("NaN detected in action mean")
+        #     import ipdb; ipdb.set_trace()
+            
         self.distribution = Normal(mean, mean*0. + self.std)
 
     def act(self, observations, obs_history, **kwargs):

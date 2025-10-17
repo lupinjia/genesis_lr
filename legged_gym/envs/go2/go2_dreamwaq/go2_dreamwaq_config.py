@@ -5,11 +5,11 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
         num_envs = 4096
         num_actions = 12
         num_observations = 45  # num_obs
-        frame_stack = 20    # number of frames to stack for obs_history
+        frame_stack = 10    # number of frames to stack for obs_history
         num_history_obs = int(num_observations * frame_stack)
-        num_latent_dims = 50
-        num_explicit_dims = 3  # base linear velocity
-        num_decoder_output = num_observations - 3
+        num_latent_dims = 20
+        num_explicit_dims = 11  # base linear velocity
+        num_decoder_output = num_observations
         c_frame_stack = 5
         single_critic_obs_len = num_observations + 34 + 81 + 12 + 3
         num_privileged_obs = c_frame_stack * single_critic_obs_len
@@ -118,7 +118,7 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
             # gait
             feet_air_time = 1.0
             foot_clearance = 0.2
-            stand_still = -0.5
+            stand_still = -0.5       # stand_still reward 没问题
 
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
@@ -158,12 +158,12 @@ class Go2DreamWaQCfgPPO( LeggedRobotCfgPPO ):
     class policy( LeggedRobotCfgPPO.policy ):
         critic_hidden_dims = [1024, 256, 128]
         actor_hidden_dims = [256, 256, 128]
-        encoder_hidden_dims = [512, 256, 128]
-        decoder_hidden_dims = [512, 256, 128]
+        encoder_hidden_dims = [512, 256]
+        decoder_hidden_dims = [512, 256]
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         encoder_lr = 1e-3
-        num_encoder_epochs = 2
-        vae_kld_weight = 1.0
+        num_encoder_epochs = 1
+        vae_kld_weight = 2.0
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticDreamWaQ"
         algorithm_class_name = "PPO_DreamWaQ"
@@ -172,4 +172,4 @@ class Go2DreamWaQCfgPPO( LeggedRobotCfgPPO ):
         save_interval = 500
         load_run = "Oct10_16-33-50_gs_ts_TCN"
         checkpoint = -1
-        max_iterations = 3000
+        max_iterations = 2500

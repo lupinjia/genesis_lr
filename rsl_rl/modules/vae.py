@@ -38,10 +38,16 @@ class VAE(nn.Module):
         self.encoder = nn.Sequential(*encoder_layers)
 
         self.latent_mu = nn.Linear(num_latent_dims * 2 + num_explicit_dims * 2, num_latent_dims)
-        self.latent_var = nn.Linear(num_latent_dims * 2 + num_explicit_dims * 2, num_latent_dims)
+        self.latent_var = nn.Sequential(
+            nn.Linear(num_latent_dims * 2 + num_explicit_dims * 2, num_latent_dims),
+            nn.Hardtanh(min_val=-2., max_val=2.) # to avoid numerical issues
+            )
 
         self.vel_mu = nn.Linear(num_latent_dims * 2 + num_explicit_dims * 2, num_explicit_dims)
-        self.vel_var = nn.Linear(num_latent_dims * 2 + num_explicit_dims * 2, num_explicit_dims)
+        self.vel_var = nn.Sequential(
+            nn.Linear(num_latent_dims * 2 + num_explicit_dims * 2, num_explicit_dims),
+            nn.Hardtanh(min_val=-2., max_val=2.) # to avoid numerical issues
+            )
 
         # MLP Decoder
         decoder_layers = []
@@ -86,8 +92,8 @@ class VAE(nn.Module):
         return eps * std + mu
     
     def sample(self,obs_history):
-        sampled_out, _ = self.forward(obs_history)
-        return sampled_out
+        sampled_out, distribution_params = self.forward(obs_history)
+        return sampled_out, distribution_params
 
     def inference(self,obs_history):
         _, distribution_params = self.forward(obs_history)

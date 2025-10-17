@@ -31,6 +31,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import math
 
 from rsl_rl.modules import ActorCriticDreamWaQ
 from rsl_rl.storage import RolloutStorageDreamWaQ
@@ -171,7 +172,9 @@ class PPO_DreamWaQ:
             if self.desired_kl != None and self.schedule == 'adaptive':
                 with torch.inference_mode():
                     kl = torch.sum(
-                        torch.log(sigma_batch / old_sigma_batch + 1.e-5) + (torch.square(old_sigma_batch) + torch.square(old_mu_batch - mu_batch)) / (2.0 * torch.square(sigma_batch)) - 0.5, axis=-1)
+                        torch.log(sigma_batch / old_sigma_batch + 1.e-5) + 
+                        (torch.square(old_sigma_batch) + 
+                         torch.square(old_mu_batch - mu_batch)) / (2.0 * torch.square(sigma_batch)) - 0.5, axis=-1)
                     kl_mean = torch.mean(kl)
 
                     if kl_mean > self.desired_kl * 2.0:

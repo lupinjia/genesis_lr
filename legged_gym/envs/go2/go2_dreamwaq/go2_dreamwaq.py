@@ -109,6 +109,7 @@ class Go2DreamWaQ(LeggedRobot):
         
         # next state
         self.next_state_buf = torch.cat((
+            self.commands[:, :3] * self.commands_scale,                     # 3
             self.simulator.projected_gravity,                                         # 3
             self.simulator.base_ang_vel * self.obs_scales.ang_vel,                   # 3
             (self.simulator.dof_pos - self.simulator.default_dof_pos) *
@@ -120,6 +121,12 @@ class Go2DreamWaQ(LeggedRobot):
         # explicit info labels
         self.explicit_labels_buf = torch.cat((
             self.simulator.base_lin_vel * self.obs_scales.lin_vel,  # 3
+            1.0 * (torch.norm(
+                self.simulator.link_contact_forces[:, self.simulator.feet_indices, :], dim=-1) 
+                   > 1.0),  # 4
+            (self.simulator.feet_pos[:, :, 2] -
+            torch.mean(self.simulator.height_around_feet, dim=-1) -
+            self.cfg.rewards.foot_height_offset),  # 4
         ), dim=-1)
 
     def _init_buffers(self):
@@ -168,20 +175,6 @@ class Go2DreamWaQ(LeggedRobot):
             self.obs_history_deque[i][env_ids] *= 0
         for i in range(self.critic_obs_deque.maxlen):
             self.critic_obs_deque[i][env_ids] *= 0
-    
-    def update_command_curriculum(self, env_ids):
-        """ Implements a curriculum of increasing commands
-
-        Args:
-            env_ids (List[int]): ids of environments being reset
-        """
-        # If the tracking reward is above 80% of the maximum, increase the range of commands
-        if torch.mean(self.episode_sums["tracking_lin_vel"][:]) / self.max_episode_length > \
-                self.cfg.commands.curriculum_threshold * self.reward_scales["tracking_lin_vel"]:
-            self.command_ranges["lin_vel_x"][0] = np.clip(
-                self.command_ranges["lin_vel_x"][0] - 0.5, -self.cfg.commands.max_curriculum, 0.)
-            self.command_ranges["lin_vel_x"][1] = np.clip(
-                self.command_ranges["lin_vel_x"][1] + 0.5, 0., self.cfg.commands.max_curriculum)
     
     def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments
