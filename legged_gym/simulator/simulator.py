@@ -1144,20 +1144,9 @@ class IsaacGymSimulator(Simulator):
             return
         # self.gym.clear_lines(self.viewer)
         # self.gym.refresh_rigid_body_state_tensor(self.sim)
-        # for i in range(self.num_envs):
-        #     base_pos = (self.root_states[i, :3]).cpu().numpy()
-        #     # draw normal vector
-        #     base_position = gymapi.Vec3(
-        #         base_pos[0], base_pos[1], base_pos[2])
-        #     normal_vector = gymapi.Vec3(
-        #         base_pos[0]+self.normal_vector_around_base[i, 0].item(), 
-        #         base_pos[1]+self.normal_vector_around_base[i, 1].item(), 
-        #         base_pos[2]+self.normal_vector_around_base[i, 2].item())
-        #     projected_gravity = gymapi.Vec3(
-        #         base_pos[0]-self.projected_gravity[i, 0].item(), base_pos[1]-self.projected_gravity[i, 1].item(), base_pos[2]+self.projected_gravity[i, 2].item())
-        #     # draw projected gravity vector
-        #     gymutil.draw_line(base_position, projected_gravity, gymapi.Vec3(0, 1, 0), self.gym, self.viewer, self.envs[i])
-        #     gymutil.draw_line(base_position, normal_vector, gymapi.Vec3(1, 0, 0), self.gym, self.viewer, self.envs[i])
+    
+    def draw_debug_height_points_around_feet(self):
+        pass
     
     def push_robots(self):
         max_vel = self.cfg.domain_rand.max_push_vel_xy

@@ -1,3 +1,4 @@
+from legged_gym import *
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 class Go2CaTCfg( LeggedRobotCfg ):
@@ -19,8 +20,10 @@ class Go2CaTCfg( LeggedRobotCfg ):
         env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        mesh_type = "heightfield" # for genesis
-        # mesh_type = "trimesh"  # for isaacgym
+        if SIMULATOR == "genesis":
+            mesh_type = "heightfield" # for genesis
+        else:
+            mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
         border_size = 10.0 # [m]
         curriculum = True
@@ -58,8 +61,8 @@ class Go2CaTCfg( LeggedRobotCfg ):
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
         # control_type = 'P'
-        stiffness = {'joint': 20.}   # [N*m/rad]
-        damping = {'joint': 0.5}     # [N*m*s/rad]
+        stiffness = {'joint': 30.}   # [N*m/rad]
+        damping = {'joint': 0.75}     # [N*m*s/rad]
         action_scale = 0.25 # action scale: target angle = actionScale * action + defaultAngle
         dt =  0.02  # control frequency 50Hz
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
@@ -68,7 +71,7 @@ class Go2CaTCfg( LeggedRobotCfg ):
         # Common: 
         name = "go2"
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
-        obtain_link_contact_states = True
+        obtain_link_contact_states = True  # obtain privileged link contact states, feeding privilege encoder
         contact_state_link_names = ["thigh", "calf", "foot"]
         foot_name = "foot"
         penalize_contacts_on = ["thigh", "calf", "base", "Head"]
@@ -99,24 +102,29 @@ class Go2CaTCfg( LeggedRobotCfg ):
         foot_clearance_tracking_sigma = 0.01
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
-            # limitation
-            dof_pos_limits = -2.0
-            collision = -1.0
             # command tracking
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
             # smooth
             lin_vel_z = -2.0
             ang_vel_xy = -0.05
-            dof_vel = -2.e-5
+            dof_power = -2.e-4
             dof_acc = -2.e-7
             action_rate = -0.01
             action_smoothness = -0.01
-            torques = -2.e-4
             # gait
-            feet_air_time = 1.0
+            hip_pos = -1.0
             foot_clearance = 0.2
-            stand_still = -0.5
+    
+    class constraints:
+        enable = "cat"        # enable constraint-as-terminations method
+        tau_constraint = 0.95 # decay rate for violation of constraints
+        soft_p = 0.25         # maximum termination probability for soft constraints  
+        
+        class limits:
+            action_rate = 100.0
+            max_projected_gravity = -0.2
+            min_base_height = 0.20
 
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
@@ -169,9 +177,9 @@ class Go2CaTCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticTS"
         algorithm_class_name = "PPO_TS"
-        run_name = 'gs_ts_MLP'
+        run_name = 'gs_cat'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Oct10_16-33-50_gs_ts_TCN"
+        load_run = "Oct22_18-03-58_gs_cat"
         checkpoint = -1
         max_iterations = 2000

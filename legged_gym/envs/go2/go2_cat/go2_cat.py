@@ -6,9 +6,19 @@ from legged_gym.envs.base.legged_robot import LeggedRobot
 from legged_gym.utils.math_utils import wrap_to_pi, quat_apply, torch_rand_float
 from legged_gym.utils.helpers import class_to_dict
 from legged_gym.utils.gs_utils import *
+from legged_gym.utils.constraint_manager import ConstraintManager
 from collections import deque
+from .go2_cat_config import Go2CaTCfg
 
 class Go2CaT(LeggedRobot):
+    
+    def __init__(self, cfg: Go2CaTCfg, sim_params, sim_device, headless):
+        super().__init__(cfg, sim_params, sim_device, headless)
+        if self.cfg.constraints.enable == "cat":
+            self.init_done = False
+            self._prepare_constraints()
+            self.init_done = True
+    
     def get_observations(self):
         return self.obs_buf, self.privileged_obs_buf, self.obs_history, self.critic_obs_buf
 
@@ -123,6 +133,141 @@ class Go2CaT(LeggedRobot):
                     dim=-1,
                 )
 
+    def reset_idx(self, env_ids):
+        super().reset_idx(env_ids)
+        if self.cfg.constraints.enable == "cat":
+            self.extras["episode"]["cstr_probs"] = torch.mean(self.cstr_prob[env_ids]).item()
+        # clear obs history for the envs that are reset
+        for i in range(self.obs_history_deque.maxlen):
+            self.obs_history_deque[i][env_ids] *= 0
+        for i in range(self.critic_obs_deque.maxlen):
+            self.critic_obs_deque[i][env_ids] *= 0
+    
+    def post_physics_step(self):
+        """ check terminations, compute observations and rewards
+            calls self._post_physics_step_callback() for common computations 
+            calls self.simulator.draw_debug_vis() if needed
+        """
+        self.episode_length_buf += 1
+        self.common_step_counter += 1
+
+        self.simulator.post_physics_step()
+        self._post_physics_step_callback()
+
+        # compute observations, rewards, resets, ...
+        self.check_termination()
+        if self.cfg.constraints.enable == "cat":
+            self.compute_constraints_cat()
+        self.compute_reward()
+        
+        env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
+        self.reset_idx(env_ids)
+        self.compute_observations()  # in some cases a simulation step might be required to refresh some obs (for example body positions)
+
+        self.llast_actions[:] = self.last_actions[:]
+        self.last_actions[:] = self.actions[:]
+        self.simulator.last_dof_vel[:] = self.simulator.dof_vel[:]
+        
+        if self.debug:
+            self.simulator.draw_debug_vis()
+    
+    def compute_constraints_cat(self):
+        """Compute various constraints for constraints as terminations. Constraints violations are asssessed then
+        handed out to a constraint manager (ConstraintManager class) that will compute termination probabilities."""
+        if not self.init_done:
+            return
+        # ------------ Soft constraints ----------------
+        
+        # Torque constraint
+        cstr_torque = torch.any(torch.abs(self.simulator.torques) > self.simulator.torque_limits, dim=-1)
+        
+        # Joint velocity constraint
+        cstr_dof_vel = torch.any(torch.abs(self.simulator.dof_vel) > self.simulator.dof_vel_limits, dim=-1)
+        
+        # Action rate constraint (for command smoothness)
+        cstr_action_rate = torch.any(torch.abs(self.actions - self.last_actions) / self.dt > 
+                                     self.cfg.constraints.limits.action_rate, dim=-1)
+        
+        # Base height constraint (too low)
+        cstr_base_height = self.simulator.base_pos[:, 2] < self.cfg.constraints.limits.min_base_height
+
+        # ------------ Hard constraints ----------------
+        
+        # Collision constraint
+        cstr_collision = torch.any(torch.norm(
+            self.simulator.link_contact_forces[:, self.simulator.penalized_contact_indices, :], 
+            dim=-1) > 10.0, dim=1)
+        
+        # Feet stumble constraint
+        cstr_feet_stumble = torch.any(torch.norm(self.simulator.link_contact_forces[:, self.simulator.feet_indices, :], dim=-1) > \
+            4 * torch.abs(self.simulator.link_contact_forces[:, self.simulator.feet_indices, 2]), dim=1)
+
+        # Joint position limit constraint
+        cstr_dof_pos = torch.any(self.simulator.dof_pos < self.simulator.dof_pos_limits[:, 0], dim=-1) * \
+            torch.any(self.simulator.dof_pos > self.simulator.dof_pos_limits[:, 1], dim=-1)
+        
+        # Base orientation constraint
+        cstr_base_orientation = self.simulator.projected_gravity[:, 2] > self.cfg.constraints.limits.max_projected_gravity
+        
+        # ------------ Style constraints ----------------
+        
+        # Standing still constraint, penalize motion when command is zero
+        cstr_stand_still = torch.any(torch.abs(self.simulator.dof_vel) > 4.0, dim=-1) * \
+            (torch.norm(self.commands[:, :3], dim=1) < 0.1).float().unsqueeze(1)
+        
+        # ------------ Applying constraints ----------------
+        
+        soft_p = self.constraint["soft_p"]
+        
+        # soft constraints
+        self.constraint_manager.add("torque", cstr_torque, max_p=soft_p)
+        self.constraint_manager.add("dof_vel", cstr_dof_vel, max_p=soft_p)
+        self.constraint_manager.add("action_rate", cstr_action_rate, max_p=soft_p)
+        self.constraint_manager.add("base_height", cstr_base_height, max_p=soft_p)
+        # hard constraints
+        self.constraint_manager.add("collision", cstr_collision, max_p=1.0)
+        self.constraint_manager.add("feet_stumble", cstr_feet_stumble, max_p=1.0)
+        self.constraint_manager.add("dof_pos", cstr_dof_pos, max_p=1.0)
+        self.constraint_manager.add("base_orientation", cstr_base_orientation, max_p=1.0)
+        # style constraints
+        self.constraint_manager.add("stand_still", cstr_stand_still, max_p=soft_p)
+        
+        self.constraint_manager.log_all(self.episode_sums)
+        
+        # Get final termination probability for each env from all constraints
+        self.cstr_prob = self.constraint_manager.get_probs()
+    
+    def compute_reward(self):
+        """ Compute rewards
+            Calls each reward function which had a non-zero scale (processed in self._prepare_reward_function())
+            adds each terms to the episode sums and to the total reward
+        """
+        self.rew_buf[:] = 0.
+        for i in range(len(self.reward_functions)):
+            name = self.reward_names[i]
+            rew = self.reward_functions[i]() * self.reward_scales[name]
+            self.rew_buf += rew
+            self.episode_sums[name] += rew
+        if self.cfg.rewards.only_positive_rewards:
+            if self.cfg.constraints.enable == "cat":
+                self.rew_buf[:] = torch.clip(self.rew_buf[:] * (1.0 - self.cstr_prob), min=0.)
+            else:
+                self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
+        # add termination reward after clipping
+        if "termination" in self.reward_scales:
+            rew = self._reward_termination(
+            ) * self.reward_scales["termination"]
+            self.rew_buf += rew
+            self.episode_sums["termination"] += rew
+    
+    #---------- Protected Functions ----------#
+    
+    def _prepare_constraints(self):
+        self.constraint = {}
+        self.constraint["soft_p"] = self.cfg.constraints.soft_p
+        self.constraint_manager = ConstraintManager(tau=self.cfg.constraints.tau_constraint, min_p=0.0)
+        
+        
     def _init_buffers(self):
         super()._init_buffers()
         # obs_history
@@ -152,14 +297,8 @@ class Go2CaT(LeggedRobot):
                     device=self.device,
                 )
             )
-
-    def reset_idx(self, env_ids):
-        super().reset_idx(env_ids)
-        # clear obs history for the envs that are reset
-        for i in range(self.obs_history_deque.maxlen):
-            self.obs_history_deque[i][env_ids] *= 0
-        for i in range(self.critic_obs_deque.maxlen):
-            self.critic_obs_deque[i][env_ids] *= 0
+        # constraint probabilities buffer
+        self.cstr_prob = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
     
     def _reset_dofs(self, env_ids):
         """ Resets DOF position and velocities of selected environmments
@@ -196,31 +335,7 @@ class Go2CaT(LeggedRobot):
         self.kd_scale_offset = (self.cfg.domain_rand.kd_range[0] +
                                 self.cfg.domain_rand.kd_range[1]) / 2  # mean value
 
-    def post_physics_step(self):
-        """ check terminations, compute observations and rewards
-            calls self._post_physics_step_callback() for common computations 
-            calls self.simulator.draw_debug_vis() if needed
-        """
-        self.episode_length_buf += 1
-        self.common_step_counter += 1
-
-        self.simulator.post_physics_step()
-        self._post_physics_step_callback()
-
-        # compute observations, rewards, resets, ...
-        self.check_termination()
-        self.compute_reward()
-        
-        env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
-        self.reset_idx(env_ids)
-        self.compute_observations()  # in some cases a simulation step might be required to refresh some obs (for example body positions)
-
-        self.llast_actions[:] = self.last_actions[:]
-        self.last_actions[:] = self.actions[:]
-        self.simulator.last_dof_vel[:] = self.simulator.dof_vel[:]
-        
-        if self.debug:
-            self.simulator.draw_debug_vis()
+    
     
     def _post_physics_step_callback(self):
         """ Callback called before computing terminations, rewards, and observations
@@ -298,10 +413,11 @@ class Go2CaT(LeggedRobot):
         return torch.exp(-clearance_error / self.cfg.rewards.foot_clearance_tracking_sigma)
     
     def _reward_hip_pos(self):
-        """ Reward for the hip joint position close to default position
+        """ Reward for the hip joint position close to default position,
+            active only when the linear Y velocity and angular yaw velocity commands are both near zero
         """
         hip_joint_indices = [0, 3, 6, 9]
         dof_pos_error = torch.sum(torch.square(
             self.simulator.dof_pos[:, hip_joint_indices] - 
             self.simulator.default_dof_pos[:, hip_joint_indices]), dim=-1)
-        return dof_pos_error
+        return dof_pos_error * (torch.abs(self.commands[:, 1]) < 0.1).float() * (torch.abs(self.commands[:, 2]) < 0.1).float()

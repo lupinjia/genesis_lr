@@ -16,7 +16,7 @@ def play(args):
         )
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
-    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 10)
+    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 1)
     env_cfg.viewer.rendered_envs_idx = list(range(env_cfg.env.num_envs))
     env_cfg.terrain.num_rows = 2
     env_cfg.terrain.num_cols = 2
@@ -24,11 +24,11 @@ def play(args):
     env_cfg.terrain.selected = True
     
     # stairs
-    env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
-                                      "step_width": 0.31, "step_height": -0.13, "platform_size": 3.0}
-    # single stair
     # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
-    #                                   "step_width": 1.0, "step_height": -0.05, "platform_size": 3.0}
+    #                                   "step_width": 0.31, "step_height": -0.15, "platform_size": 3.0}
+    # single stair
+    env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
+                                      "step_width": 1.0, "step_height": -0.05, "platform_size": 3.0}
     # slope
     # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_sloped_terrain",
     #                                   "slope": -0.4, "platform_size": 3.0}
@@ -43,8 +43,8 @@ def play(args):
     env_cfg.asset.fix_base_link = False
     env_cfg.env.debug = True
     # velocity range
-    env_cfg.commands.ranges.lin_vel_x = [1.0, 1.0]
-    env_cfg.commands.ranges.lin_vel_y = [0.0, 0.0]
+    env_cfg.commands.ranges.lin_vel_x = [0.0, 0.0]
+    env_cfg.commands.ranges.lin_vel_y = [0.5, 0.5]
     env_cfg.commands.ranges.ang_vel_yaw = [0., 0.]
     env_cfg.commands.ranges.heading = [0.0, 0.0]
 
@@ -78,6 +78,7 @@ def play(args):
         # print(f"base height: {env.simulator.base_pos[robot_index,2].item():.3f} m")
         # print(f"measured_heights: {env.simulator.measured_heights[robot_index].cpu().numpy()}")
         # print(f"height_around_feet: {env.simulator.height_around_feet[robot_index].cpu().numpy()}")
+        print(f"base height above ground: {torch.mean(env.simulator.base_pos[:,2].unsqueeze(1) - env.simulator.measured_heights[:, :], dim=1)[robot_index].item()} m")
         # print("------------")
         
         

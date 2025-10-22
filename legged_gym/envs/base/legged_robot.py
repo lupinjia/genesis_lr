@@ -88,14 +88,16 @@ class LeggedRobot(BaseTask):
     def check_termination(self):
         """ Check if environments need to be reset
         """
-        self.reset_buf = torch.any(torch.norm(
-            self.simulator.link_contact_forces[:, self.simulator.termination_contact_indices, :], 
-            dim=-1) > 1.0, dim=1)
+        fail_buf = torch.any(
+            torch.norm(self.simulator.link_contact_forces[:, self.simulator.termination_contact_indices, :], dim=-1)
+            > 10.0, dim=1)
+        fail_buf |= self.simulator.projected_gravity[:, 2] > self.cfg.rewards.max_projected_gravity
+        self.fail_buf += fail_buf
         self.time_out_buf = self.episode_length_buf > self.max_episode_length  # no terminal reward for time-outs
-        self.reset_buf |= self.time_out_buf
-        # check if base angle is too big
-        proj_grav_over_limit = self.simulator.projected_gravity[:, 2] > self.cfg.rewards.max_projected_gravity
-        self.reset_buf |= proj_grav_over_limit
+        self.reset_buf = (
+            (self.fail_buf > self.cfg.env.fail_to_terminal_time_s / self.dt)
+            | self.time_out_buf
+        )
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -126,6 +128,7 @@ class LeggedRobot(BaseTask):
         self.feet_air_time[env_ids] = 0.
         self.episode_length_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
+        self.fail_buf[env_ids] = 0
 
         # fill extras
         self.extras["episode"] = {}
@@ -359,6 +362,7 @@ class LeggedRobot(BaseTask):
             (self.num_envs, 3), device=self.device, dtype=torch.float
         )
         self.forward_vec[:, 0] = 1.0
+        self.fail_buf = torch.zeros(self.num_envs, dtype=torch.long, device=self.device, requires_grad=False)
         self.commands = torch.zeros(
             (self.num_envs, self.cfg.commands.num_commands), device=self.device, dtype=torch.float)
         self.commands_scale = torch.tensor([self.obs_scales.lin_vel, self.obs_scales.lin_vel, self.obs_scales.ang_vel],
@@ -449,6 +453,10 @@ class LeggedRobot(BaseTask):
     def _reward_dof_vel(self):
         # Penalize dof velocities
         return torch.sum(torch.square(self.simulator.dof_vel), dim=1)
+    
+    def _reward_dof_power(self):
+        # Penalize power consumption
+        return torch.sum(torch.abs(self.simulator.torques * self.simulator.dof_vel), dim=1)
 
     def _reward_dof_acc(self):
         # Penalize dof accelerations
@@ -516,7 +524,7 @@ class LeggedRobot(BaseTask):
 
     def _reward_stand_still(self):
         # Penalize motion at zero commands
-        return torch.sum(torch.abs(self.simulator.dof_pos - self.simulator.default_dof_pos), dim=1) * (torch.norm(self.commands[:, :2], dim=1) < 0.1)
+        return torch.sum(torch.abs(self.simulator.dof_vel), dim=1) * (torch.norm(self.commands[:, :3], dim=1) < 0.1)
 
     def _reward_dof_close_to_default(self):
         # Penalize dof position deviation from default
