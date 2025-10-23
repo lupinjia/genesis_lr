@@ -136,7 +136,7 @@ class Go2CaT(LeggedRobot):
     def reset_idx(self, env_ids):
         super().reset_idx(env_ids)
         if self.cfg.constraints.enable == "cat":
-            self.extras["episode"]["cstr_probs"] = torch.mean(self.cstr_prob[env_ids]).item()
+            self.extras["episode"]["cstr_probs"] = torch.mean(self.cstr_prob)
         # clear obs history for the envs that are reset
         for i in range(self.obs_history_deque.maxlen):
             self.obs_history_deque[i][env_ids] *= 0
@@ -189,7 +189,8 @@ class Go2CaT(LeggedRobot):
                                      self.cfg.constraints.limits.action_rate, dim=-1)
         
         # Base height constraint (too low)
-        cstr_base_height = self.simulator.base_pos[:, 2] < self.cfg.constraints.limits.min_base_height
+        cstr_base_height = torch.mean(self.simulator.base_pos[:, 2].unsqueeze(
+            1) - self.simulator.measured_heights, dim=1) < self.cfg.constraints.limits.min_base_height
 
         # ------------ Hard constraints ----------------
         

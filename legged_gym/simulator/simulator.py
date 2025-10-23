@@ -1142,11 +1142,22 @@ class IsaacGymSimulator(Simulator):
         # draw height lines
         if not self.terrain.cfg.measure_heights:
             return
-        # self.gym.clear_lines(self.viewer)
-        # self.gym.refresh_rigid_body_state_tensor(self.sim)
+        self.gym.clear_lines(self.viewer)
+        self.gym.refresh_rigid_body_state_tensor(self.sim)
+        # self.draw_height_points()
     
-    def draw_debug_height_points_around_feet(self):
-        pass
+    def draw_height_points(self):
+        sphere_geom = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(1, 1, 0))
+        for i in range(self.num_envs):
+            base_pos = (self.root_states[i, :3]).cpu().numpy()
+            heights = self.measured_heights[i].cpu().numpy()
+            height_points = quat_apply_yaw(self.base_quat[i].repeat(heights.shape[0]), self.height_points[i]).cpu().numpy()
+            for j in range(heights.shape[0]):
+                x = height_points[j, 0] + base_pos[0]
+                y = height_points[j, 1] + base_pos[1]
+                z = heights[j]
+                sphere_pose = gymapi.Transform(gymapi.Vec3(x, y, z), r=None)
+                gymutil.draw_lines(sphere_geom, self.gym, self.viewer, self.envs[i], sphere_pose) 
     
     def push_robots(self):
         max_vel = self.cfg.domain_rand.max_push_vel_xy

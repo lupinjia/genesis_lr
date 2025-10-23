@@ -1,3 +1,4 @@
+from legged_gym import *
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 class Go2TSCfg( LeggedRobotCfg ):
@@ -19,8 +20,10 @@ class Go2TSCfg( LeggedRobotCfg ):
         env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        mesh_type = "heightfield" # for genesis
-        # mesh_type = "trimesh"  # for isaacgym
+        if SIMULATOR == "genesis":
+            mesh_type = "heightfield" # for genesis
+        else:
+            mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
         border_size = 10.0 # [m]
         curriculum = True
@@ -58,8 +61,8 @@ class Go2TSCfg( LeggedRobotCfg ):
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
         # control_type = 'P'
-        stiffness = {'joint': 20.}   # [N*m/rad]
-        damping = {'joint': 0.5}     # [N*m*s/rad]
+        stiffness = {'joint': 30.}   # [N*m/rad]
+        damping = {'joint': 0.75}     # [N*m*s/rad]
         action_scale = 0.25 # action scale: target angle = actionScale * action + defaultAngle
         dt =  0.02  # control frequency 50Hz
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
@@ -108,11 +111,10 @@ class Go2TSCfg( LeggedRobotCfg ):
             # smooth
             lin_vel_z = -2.0
             ang_vel_xy = -0.05
-            dof_vel = -2.e-5
+            dof_power = -2.e-4
             dof_acc = -2.e-7
             action_rate = -0.01
             action_smoothness = -0.01
-            torques = -2.e-4
             # gait
             feet_air_time = 1.0
             foot_clearance = 0.2

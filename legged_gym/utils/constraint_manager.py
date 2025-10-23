@@ -68,9 +68,6 @@ class ConstraintManager:
         """Returns the termination probabilities due to constraint violations."""
         probs = torch.cat(list(self.probs.values()), dim=1)
         probs = probs.max(1).values
-        # Check if NaN exists in probs
-        if torch.isnan(probs).any():
-            import ipdb; ipdb.set_trace()
         return probs
 
     def get_str(self, names=None):
