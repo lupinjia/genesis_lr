@@ -25,7 +25,7 @@ class Go2TSCfg( LeggedRobotCfg ):
         else:
             mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
-        border_size = 10.0 # [m]
+        border_size = 20.0 # [m]
         curriculum = True
         # rough terrain only:
         obtain_terrain_info_around_feet = True
@@ -171,9 +171,9 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticTS"
         algorithm_class_name = "PPO_TS"
-        run_name = 'gs_ts_MLP'
+        run_name = 'gs_ts_blind'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Oct10_16-33-50_gs_ts_TCN"
+        load_run = "Oct23_10-54-08_gs_ts_blind"
         checkpoint = -1
         max_iterations = 2000

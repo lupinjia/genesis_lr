@@ -216,6 +216,21 @@ class Go2CaT(LeggedRobot):
         cstr_stand_still = torch.any(torch.abs(self.simulator.dof_vel) > 4.0, dim=-1) * \
             (torch.norm(self.commands[:, :3], dim=1) < 0.1).float().unsqueeze(1)
         
+        # ------------ Log constraint violation ----------------
+        if self.debug_cstr:
+            cstr_names = ["torque", "dof_vel", "action_rate", "base_height",
+                            "collision", "feet_stumble", "dof_pos", "base_orientation",
+                            "stand_still"]
+            cstr_violations = [cstr_torque, cstr_dof_vel, cstr_action_rate, cstr_base_height,
+                                cstr_collision, cstr_feet_stumble, cstr_dof_pos, cstr_base_orientation,
+                                cstr_stand_still]
+            for i in range(len(cstr_names)):
+                name = cstr_names[i]
+                if name not in self.cstr_violation:
+                    self.cstr_violation[name] = 0
+                violation = cstr_violations[i]
+                self.cstr_violation[name] += torch.mean(violation.float()).item()
+        
         # ------------ Applying constraints ----------------
         
         soft_p = self.constraint["soft_p"]
@@ -335,7 +350,12 @@ class Go2CaT(LeggedRobot):
                                 self.cfg.domain_rand.kp_range[1]) / 2  # mean value
         self.kd_scale_offset = (self.cfg.domain_rand.kd_range[0] +
                                 self.cfg.domain_rand.kd_range[1]) / 2  # mean value
-
+        # if debug_cstr_violation exists in cfg, use it; otherwise, set to False
+        if hasattr(self.cfg.env, 'debug_cstr_violation'):
+            self.debug_cstr = self.cfg.env.debug_cstr_violation
+            self.cstr_violation = {}
+        else:
+            self.debug_cstr = False
     
     
     def _post_physics_step_callback(self):
@@ -415,10 +435,9 @@ class Go2CaT(LeggedRobot):
     
     def _reward_hip_pos(self):
         """ Reward for the hip joint position close to default position,
-            active only when the linear Y velocity and angular yaw velocity commands are both near zero
         """
         hip_joint_indices = [0, 3, 6, 9]
         dof_pos_error = torch.sum(torch.square(
             self.simulator.dof_pos[:, hip_joint_indices] - 
             self.simulator.default_dof_pos[:, hip_joint_indices]), dim=-1)
-        return dof_pos_error * (torch.abs(self.commands[:, 1]) < 0.1).float() * (torch.abs(self.commands[:, 2]) < 0.1).float()
+        return dof_pos_error

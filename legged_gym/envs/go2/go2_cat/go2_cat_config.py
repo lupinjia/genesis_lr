@@ -11,25 +11,16 @@ class Go2CaTCfg( Go2TSCfg ):
         foot_clearance_tracking_sigma = 0.01
         only_positive_rewards = True
         class scales( Go2TSCfg.rewards.scales ):
+            # only modified terms here
             # unused rewards
             dof_pos_limits = 0.0
             collision = 0.0
             stand_still = 0.0
-            
-            # command tracking
-            tracking_lin_vel = 1.0
-            tracking_ang_vel = 0.5
             # smooth
             lin_vel_z = -1.0
-            ang_vel_xy = -0.05
             orientation = -0.5
-            dof_power = -2.e-4
-            dof_acc = -2.e-7
-            action_rate = -0.01
-            action_smoothness = -0.01
             # gait
-            feet_air_time = 1.0
-            hip_pos = -1.0
+            hip_pos = -0.2
             dof_close_to_default = -0.05
             foot_clearance = 0.2
     
@@ -46,4 +37,4 @@ class Go2CaTCfg( Go2TSCfg ):
 class Go2CaTCfgPPO( Go2TSCfgPPO ):
     class runner( Go2TSCfgPPO.runner ):
         run_name = 'gs_cat'
-        load_run = "Oct23_00-15-48_gs_cat"
+        load_run = "Oct23_15-51-52_gs_cat"
