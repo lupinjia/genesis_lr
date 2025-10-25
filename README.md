@@ -40,8 +40,8 @@ Please refer to the [doc of this repo](https://genesis-lr.readthedocs.io/en/late
 
 | Robot | Sim | Real |
 |--- | --- | --- |
-| Unitree Go2 (Walk These Ways) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) |
-| Bipedal Walker | ![](./docs/source/_static/images/bipedal_walker_flat.gif) | |
+| Unitree Go2 | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) |
+| Limx TRON1_PF | ![](https://github.com/lupinjia/genesis_lr_doc/blob/main/source/_static/images/tron1_pf_demo.gif) | |
 
 ## 🙏 Acknowledgements
 
@@ -50,6 +50,7 @@ Please refer to the [doc of this repo](https://genesis-lr.readthedocs.io/en/late
 - [legged_gym](https://github.com/leggedrobotics/legged_gym)
 - [rsl_rl](https://github.com/leggedrobotics/rsl_rl)
 - [unitree_rl_gym](https://github.com/unitreerobotics/unitree_rl_gym)
+- [tron1-rl-isaacgym](https://github.com/limxdynamics/tron1-rl-isaacgym)
 
 ## TODO
 
@@ -57,3 +58,6 @@ Please refer to the [doc of this repo](https://genesis-lr.readthedocs.io/en/late
 - [x] Add explicit estimator support (2025/09/29)
 - [x] Add teacher-student implementation (2025/08/02)
 - [x] Add Constraints as Terminations implementation (2025/10/23)
+- [ ] Add support for TRON1_PF (flat and rough)
+- [ ] Add support for TRON1_SF (flat and rough)
+- [ ] Add support for TRON1_WF (flat and rough)
