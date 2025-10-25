@@ -423,6 +423,13 @@ class LeggedRobot(BaseTask):
             self.cfg.terrain.curriculum = False
         self.max_episode_length_s = self.cfg.env.episode_length_s
         self.max_episode_length = np.ceil(self.max_episode_length_s / self.dt)
+        # determine privileged observation offset to normalize privileged observations
+        self.friction_value_offset = (self.cfg.domain_rand.friction_range[0] + 
+                                      self.cfg.domain_rand.friction_range[1]) / 2  # mean value
+        self.kp_scale_offset = (self.cfg.domain_rand.kp_range[0] +
+                                self.cfg.domain_rand.kp_range[1]) / 2  # mean value
+        self.kd_scale_offset = (self.cfg.domain_rand.kd_range[0] +
+                                self.cfg.domain_rand.kd_range[1]) / 2  # mean value
         
         self.cfg.domain_rand.push_interval = np.ceil(self.cfg.domain_rand.push_interval_s / self.dt)
 

@@ -83,6 +83,7 @@ class OnPolicyRunner:
 
         # Log
         self.log_dir = log_dir
+        self.sync_wandb = self.cfg["sync_wandb"] if "sync_wandb" in self.cfg else False
         self.writer = None
         self.tot_timesteps = 0
         self.tot_time = 0
@@ -93,12 +94,13 @@ class OnPolicyRunner:
     def learn(self, num_learning_iterations, init_at_random_ep_len=False):
         # initialize writer
         if self.log_dir is not None and self.writer is None:
-            wandb.init(
-                project="genesis_lr",
-                name=self.wandb_run_name,
-                sync_tensorboard=True,
-                config=self.all_cfg,
-            )
+            if self.sync_wandb:
+                wandb.init(
+                    project="genesis_lr",
+                    name=self.wandb_run_name,
+                    sync_tensorboard=True,
+                    config=self.all_cfg,
+                )
             self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
         if init_at_random_ep_len:
             self.env.episode_length_buf = torch.randint_like(self.env.episode_length_buf, high=int(self.env.max_episode_length))

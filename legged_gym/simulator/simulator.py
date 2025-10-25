@@ -1140,7 +1140,7 @@ class IsaacGymSimulator(Simulator):
             Default behaviour: draws height measurement points
         """
         # draw height lines
-        if not self.terrain.cfg.measure_heights:
+        if not self.cfg.terrain.measure_heights:
             return
         self.gym.clear_lines(self.viewer)
         self.gym.refresh_rigid_body_state_tensor(self.sim)
