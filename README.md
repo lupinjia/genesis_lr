@@ -41,7 +41,7 @@ Please refer to the [doc of this repo](https://genesis-lr.readthedocs.io/en/late
 | Robot | Sim | Real |
 |--- | --- | --- |
 | Unitree Go2 | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) |
-| Limx TRON1_PF | ![](https://github.com/lupinjia/genesis_lr_doc/blob/main/source/_static/images/tron1_pf_demo.gif) | |
+| Limx TRON1_PF | ![](./resources/images/tron1_pf_demo.gif) | |
 
 ## 🙏 Acknowledgements
 
