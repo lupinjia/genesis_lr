@@ -15,28 +15,6 @@ from .tron1_pf_config import TRON1PFCfg
 from collections import deque
 
 class TRON1PF(LeggedRobot):
-    # def _reset_dofs(self, env_ids):
-    #     """ Resets DOF position and velocities of selected environmments
-    #     Positions are randomly selected within 0.5:1.5 x default positions.
-    #     Velocities are set to zero.
-
-    #     Args:
-    #         env_ids (List[int]): Environemnt ids
-    #     """
-        
-    #     dof_pos = torch.zeros((len(env_ids), self.num_actions), dtype=torch.float, 
-    #                           device=self.device, requires_grad=False)
-    #     dof_vel = torch.zeros((len(env_ids), self.num_actions), dtype=torch.float, 
-    #                           device=self.device, requires_grad=False)
-    #     dof_pos[:, [0, 3, 6, 9]] = self.simulator.default_dof_pos[:, [0, 3, 6, 9]] + \
-    #         torch_rand_float(-0.2, 0.2, (len(env_ids), 4), self.device)
-    #     dof_pos[:, [1, 4, 7, 10]] = self.simulator.default_dof_pos[:, [1, 4, 7, 10]] + \
-    #         torch_rand_float(-0.4, 0.4, (len(env_ids), 4), self.device)
-    #     dof_pos[:, [2, 5, 8, 11]] = self.simulator.default_dof_pos[:, [2, 5, 8, 11]] + \
-    #         torch_rand_float(-0.4, 0.4, (len(env_ids), 4), self.device)
-
-    #     self.simulator.reset_dofs(env_ids, dof_pos, dof_vel)
-    
     # Override functions for deployment
     def compute_observations(self):
         obs_buf = torch.cat((
@@ -156,15 +134,6 @@ class TRON1PF(LeggedRobot):
             noise_vec[27:214] = noise_scales.height_measurements * noise_level * self.obs_scales.height_measurements
         return noise_vec
     
-    def _reward_keep_balance(self):
-        return torch.ones(
-            self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
-
-    def _reward_no_fly(self):
-        contacts = self.simulator.link_contact_forces[:, self.simulator.feet_indices, 2] > 0.1
-        single_contact = torch.sum(1.*contacts, dim=1)==1
-        return 1.*single_contact
-    
     def _reward_feet_air_time(self):
         # Reward long steps
         contact = self.simulator.link_contact_forces[:, self.simulator.feet_indices, 2] > 1.
@@ -176,10 +145,3 @@ class TRON1PF(LeggedRobot):
         rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1  # no reward for zero command
         self.feet_air_time *= ~contact_filt
         return rew_airTime
-    
-    def _reward_feet_distance(self):
-        '''reward for feet distance'''
-        feet_xy_distance = torch.norm(
-            self.simulator.feet_pos[:, 0, [0, 1]] - self.simulator.feet_pos[:, 1, [0, 1]], dim=-1)
-        return torch.max(torch.zeros_like(feet_xy_distance),
-                         self.cfg.rewards.foot_distance_threshold - feet_xy_distance)

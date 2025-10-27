@@ -8,9 +8,8 @@ from legged_gym.utils.helpers import class_to_dict
 from legged_gym.utils.gs_utils import *
 from collections import deque
 
-class Go2TS(LeggedRobot):
+class TRON1PF_TS(LeggedRobot):
     def get_observations(self):
-        # actor obs, input of teacher encoder, input of student encoder, critic obs
         return self.obs_buf, self.privileged_obs_buf, self.obs_history, self.critic_obs_buf
 
     def step(self, actions):
@@ -45,11 +44,11 @@ class Go2TS(LeggedRobot):
     def compute_observations(self):
         self.obs_buf = torch.cat((
             self.commands[:, :3] * self.commands_scale,                     # 3
-            self.simulator.projected_gravity,                                         # 3
-            self.simulator.base_ang_vel * self.obs_scales.ang_vel,                   # 3
+            self.simulator.projected_gravity,                               # 3
+            self.simulator.base_ang_vel * self.obs_scales.ang_vel,          # 3
             (self.simulator.dof_pos - self.simulator.default_dof_pos) *
-            self.obs_scales.dof_pos,  # num_dofs
-            self.simulator.dof_vel * self.obs_scales.dof_vel,                         # num_dofs
+            self.obs_scales.dof_pos,                                        # num_dofs
+            self.simulator.dof_vel * self.obs_scales.dof_vel,               # num_dofs
             self.actions                                                    # num_actions
         ), dim=-1)
         
@@ -63,21 +62,18 @@ class Go2TS(LeggedRobot):
                      self.kp_scale_offset),                 # num_actions
                     (self.simulator._kd_scale - 
                      self.kd_scale_offset),                 # num_actions
-                    self.simulator._joint_armature,         # 1
-                    self.simulator._joint_stiffness,        # 1
-                    self.simulator._joint_damping,          # 1
             ), dim=-1)
         
         # Critic observation
         critic_obs = torch.cat((
             self.obs_buf,                 # num_observations
-            domain_randomization_info,    # 34
+            domain_randomization_info,    # 19
         ), dim=-1)
         if self.cfg.asset.obtain_link_contact_states:
             critic_obs = torch.cat(
                 (
                     critic_obs,                         # previous
-                    self.simulator.link_contact_states,  # contact states of thighs, calfs and feet (4+4+4)=12
+                    self.simulator.link_contact_states,  # contact states of thighs, calfs and feet (2+2+2)=6
                 ),
                 dim=-1,
             )
@@ -109,7 +105,7 @@ class Go2TS(LeggedRobot):
         if self.num_privileged_obs is not None:
             self.privileged_obs_buf = torch.cat(
                 (
-                    domain_randomization_info,                       # 34
+                    domain_randomization_info,                       # 19
                     self.simulator.height_around_feet.flatten(1,2),  # 9*number of feet
                     self.simulator.normal_vector_around_feet,        # 3*number of feet
                 ),
@@ -119,7 +115,7 @@ class Go2TS(LeggedRobot):
                 self.privileged_obs_buf = torch.cat(
                     (
                         self.privileged_obs_buf,                   # previous
-                        self.simulator.link_contact_states,        # contact states of thighs, calfs and feet (4+4+4)=12
+                        self.simulator.link_contact_states,        # contact states of thighs, calfs and feet (2+2+2)=6
                     ),
                     dim=-1,
                 )
@@ -161,28 +157,6 @@ class Go2TS(LeggedRobot):
             self.obs_history_deque[i][env_ids] *= 0
         for i in range(self.critic_obs_deque.maxlen):
             self.critic_obs_deque[i][env_ids] *= 0
-    
-    def _reset_dofs(self, env_ids):
-        """ Resets DOF position and velocities of selected environmments
-        Positions are randomly selected within 0.5:1.5 x default positions.
-        Velocities are set to zero.
-
-        Args:
-            env_ids (List[int]): Environemnt ids
-        """
-        
-        dof_pos = torch.zeros((len(env_ids), self.num_actions), dtype=torch.float, 
-                              device=self.device, requires_grad=False)
-        dof_vel = torch.zeros((len(env_ids), self.num_actions), dtype=torch.float, 
-                              device=self.device, requires_grad=False)
-        dof_pos[:, [0, 3, 6, 9]] = self.simulator.default_dof_pos[:, [0, 3, 6, 9]] + \
-            torch_rand_float(-0.2, 0.2, (len(env_ids), 4), self.device)
-        dof_pos[:, [1, 4, 7, 10]] = self.simulator.default_dof_pos[:, [1, 4, 7, 10]] + \
-            torch_rand_float(-0.4, 0.4, (len(env_ids), 4), self.device)
-        dof_pos[:, [2, 5, 8, 11]] = self.simulator.default_dof_pos[:, [2, 5, 8, 11]] + \
-            torch_rand_float(-0.4, 0.4, (len(env_ids), 4), self.device)
-
-        self.simulator.reset_dofs(env_ids, dof_pos, dof_vel)
 
     def _parse_cfg(self, cfg):
         super()._parse_cfg(cfg)
@@ -358,12 +332,3 @@ class Go2TS(LeggedRobot):
             ), dim=-1
         )
         return torch.exp(-clearance_error / self.cfg.rewards.foot_clearance_tracking_sigma)
-    
-    def _reward_hip_pos(self):
-        """ Reward for the hip joint position close to default position
-        """
-        hip_joint_indices = [0, 3, 6, 9]
-        dof_pos_error = torch.sum(torch.square(
-            self.simulator.dof_pos[:, hip_joint_indices] - 
-            self.simulator.default_dof_pos[:, hip_joint_indices]), dim=-1)
-        return dof_pos_error

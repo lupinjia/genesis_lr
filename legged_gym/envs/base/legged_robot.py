@@ -450,6 +450,7 @@ class LeggedRobot(BaseTask):
         # Penalize base height away from target
         base_height = torch.mean(self.simulator.base_pos[:, 2].unsqueeze(
             1) - self.simulator.measured_heights, dim=1)
+        # print(f"base height: {base_height}")
         rew = torch.square(base_height - self.cfg.rewards.base_height_target)
         return rew
 
@@ -561,3 +562,19 @@ class LeggedRobot(BaseTask):
             about_to_land, z_vels, torch.zeros_like(z_vels))
         reward = torch.sum(torch.square(landing_z_vels), dim=1)
         return reward
+    
+    def _reward_keep_balance(self):
+        return torch.ones(
+            self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
+    
+    def _reward_no_fly(self):
+        contacts = self.simulator.link_contact_forces[:, self.simulator.feet_indices, 2] > 0.1
+        single_contact = torch.sum(1.*contacts, dim=1)==1
+        return 1.*single_contact
+
+    def _reward_feet_distance(self):
+        '''reward for feet distance'''
+        feet_xy_distance = torch.norm(
+            self.simulator.feet_pos[:, 0, [0, 1]] - self.simulator.feet_pos[:, 1, [0, 1]], dim=-1)
+        return torch.max(torch.zeros_like(feet_xy_distance),
+                         self.cfg.rewards.foot_distance_threshold - feet_xy_distance)

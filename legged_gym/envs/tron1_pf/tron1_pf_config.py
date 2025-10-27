@@ -68,7 +68,6 @@ class TRON1PFCfg( LeggedRobotCfg ):
         only_positive_rewards = False
         class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
-            # termination = -200.0
             keep_balance = 1.0
             dof_pos_limits = -2.0
             collision = -1.0

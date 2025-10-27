@@ -41,7 +41,8 @@ Please refer to the [doc of this repo](https://genesis-lr.readthedocs.io/en/late
 | Robot | Sim | Real |
 |--- | --- | --- |
 | Unitree Go2 | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) |
-| Limx TRON1_PF | ![](./resources/images/tron1_pf_demo.gif) | |
+| Limx TRON1_PF (flat) | ![](./resources/images/tron1_pf_demo.gif) |[video](https://www.bilibili.com/video/BV1MdePzcEvk/?spm_id_from=333.1387.homepage.video_card.click&vd_source=50fc92fb0e7291031bbb72e3c05b2edc) |
+| TRON1_PF (rough) | ![](./resources/images/tron1_pf_rough_demo.gif) | [video](https://www.bilibili.com/video/BV1MdePzcEvk/?spm_id_from=333.1387.homepage.video_card.click&vd_source=50fc92fb0e7291031bbb72e3c05b2edc) |
 
 ## 🙏 Acknowledgements
 
@@ -58,6 +59,6 @@ Please refer to the [doc of this repo](https://genesis-lr.readthedocs.io/en/late
 - [x] Add explicit estimator support (2025/09/29)
 - [x] Add teacher-student implementation (2025/08/02)
 - [x] Add Constraints as Terminations implementation (2025/10/23)
-- [ ] Add support for TRON1_PF (flat and rough)
+- [x] Add support for TRON1_PF (flat and rough)
 - [ ] Add support for TRON1_SF (flat and rough)
 - [ ] Add support for TRON1_WF (flat and rough)
