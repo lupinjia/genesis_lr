@@ -76,13 +76,15 @@ class GenesisSimulator(Simulator):
                 dt=self.sim_params["dt"],
                 substeps=self.sim_params["substeps"]),
             viewer_options=gs.options.ViewerOptions(
-                max_FPS=int(1 / self.control_dt * self.cfg.control.decimation),
+                # max_FPS=int(1 / self.control_dt * self.cfg.control.decimation),
                 camera_pos=np.array(self.cfg.viewer.pos),
                 camera_lookat=np.array(self.cfg.viewer.lookat),
                 camera_fov=40,
             ),
             vis_options=gs.options.VisOptions(
-                rendered_envs_idx=self.cfg.viewer.rendered_envs_idx),
+                rendered_envs_idx=self.cfg.viewer.rendered_envs_idx,
+                shadow=False,
+                ),
             rigid_options=gs.options.RigidOptions(
                 dt=self.sim_params["dt"],
                 constraint_solver=gs.constraint_solver.Newton,

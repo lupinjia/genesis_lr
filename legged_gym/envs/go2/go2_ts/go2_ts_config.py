@@ -96,7 +96,7 @@ class Go2TSCfg( LeggedRobotCfg ):
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.34
+        base_height_target = 0.4
         foot_clearance_target = 0.09 # desired foot clearance above ground [m]
         foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
@@ -110,6 +110,7 @@ class Go2TSCfg( LeggedRobotCfg ):
             tracking_ang_vel = 0.5
             # smooth
             lin_vel_z = -2.0
+            base_height = -1.0
             ang_vel_xy = -0.05
             dof_power = -2.e-4
             dof_acc = -2.e-7
@@ -174,6 +175,6 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
         run_name = 'gs_ts_blind'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Oct23_10-54-08_gs_ts_blind"
+        load_run = "Oct31_17-42-50_gs_ts_blind"
         checkpoint = -1
-        max_iterations = 2000
+        max_iterations = 2500

@@ -194,11 +194,11 @@ class PPO_TS:
                 self.history_encoder_optimizer.zero_grad()
                 encoder_loss.backward()
                 self.history_encoder_optimizer.step()
+                mean_encoder_loss += encoder_loss.item()
                 
             mean_value_loss += value_loss.item()
             mean_surrogate_loss += surrogate_loss.item()
-            mean_encoder_loss += encoder_loss.item()
-
+            
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates
         mean_surrogate_loss /= num_updates
