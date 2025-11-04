@@ -543,6 +543,7 @@ class LeggedRobot(BaseTask):
         Encourage feet to be close to desired height while swinging
         """
         foot_vel_xy_norm = torch.norm(self.simulator.feet_vel[:, :, :2], dim=-1)
+        # print(f"feet pos: {self.simulator.feet_pos[:, :, 2]}")
         clearance_error = torch.sum(
             foot_vel_xy_norm * torch.square(
                 self.simulator.feet_pos[:, :, 2] -
