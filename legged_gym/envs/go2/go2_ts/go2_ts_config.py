@@ -5,12 +5,12 @@ class Go2TSCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
         num_observations = 45  # num_obs
-        num_privileged_obs = 94
+        num_privileged_obs = 97
         frame_stack = 20    # number of frames to stack for obs_history
         num_history_obs = int(num_observations * frame_stack)
         num_latent_dims = num_privileged_obs
         c_frame_stack = 5
-        single_critic_obs_len = num_observations + 34 + 81 + 12
+        single_critic_obs_len = num_observations + 34 + 81 + 12 + 3
         num_critic_obs = c_frame_stack * single_critic_obs_len
         # Privileged_obs and critic_obs are seperated here
         # privileged_obs contains information given to privileged encoder
@@ -172,7 +172,7 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticTS"
         algorithm_class_name = "PPO_TS"
-        run_name = 'gs_ts_blind'
+        run_name = 'ts_with_lin_vel'
         experiment_name = 'go2_rough'
         save_interval = 500
         load_run = "Oct31_17-42-50_gs_ts_blind"

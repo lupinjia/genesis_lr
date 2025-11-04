@@ -72,6 +72,7 @@ class Go2TS(LeggedRobot):
         critic_obs = torch.cat((
             self.obs_buf,                 # num_observations
             domain_randomization_info,    # 34
+            self.simulator.base_lin_vel * self.obs_scales.lin_vel,     # 3
         ), dim=-1)
         if self.cfg.asset.obtain_link_contact_states:
             critic_obs = torch.cat(
@@ -112,6 +113,7 @@ class Go2TS(LeggedRobot):
                     domain_randomization_info,                       # 34
                     self.simulator.height_around_feet.flatten(1,2),  # 9*number of feet
                     self.simulator.normal_vector_around_feet,        # 3*number of feet
+                    self.simulator.base_lin_vel * self.obs_scales.lin_vel,     # 3
                 ),
                 dim=-1,
             )
