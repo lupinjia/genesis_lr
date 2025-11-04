@@ -45,6 +45,9 @@ from legged_gym.envs.go2.go2_ee.go2_ee_config import Go2EECfg, Go2EECfgPPO
 # go2_cat(constraint-as-termination)
 from legged_gym.envs.go2.go2_cat.go2_cat import Go2CaT
 from legged_gym.envs.go2.go2_cat.go2_cat_config import Go2CaTCfg, Go2CaTCfgPPO
+# go2_ts_depth
+from legged_gym.envs.go2.go2_ts_depth.go2_ts_depth import Go2TSDepth
+from legged_gym.envs.go2.go2_ts_depth.go2_ts_depth_config import Go2TSDepthCfg, Go2TSDepthCfgPPO
 
 # tron1_pf
 from legged_gym.envs.tron1_pf.tron1_pf import TRON1PF
@@ -70,6 +73,7 @@ task_registry.register( "go2_wtw", GO2WTW, GO2WTWCfg(), GO2WTWCfgPPO())
 task_registry.register( "go2_ts", Go2TS, Go2TSCfg(), Go2TSCfgPPO())
 task_registry.register( "go2_ee", Go2EE, Go2EECfg(), Go2EECfgPPO())
 task_registry.register( "go2_cat", Go2CaT, Go2CaTCfg(), Go2CaTCfgPPO())
+task_registry.register( "go2_ts_depth", Go2TSDepth, Go2TSDepthCfg(), Go2TSDepthCfgPPO())
 task_registry.register( "tron1_pf", TRON1PF, TRON1PFCfg(), TRON1PFCfgPPO())
 task_registry.register( "tron1_pf_ts", TRON1PF_TS, TRON1PF_TSCfg(), TRON1PF_TSCfgPPO())
 task_registry.register( "tron1_sf", TRON1SF, TRON1SFCfg(), TRON1SFCfgPPO())

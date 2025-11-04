@@ -76,6 +76,9 @@ class LeggedRobot(BaseTask):
         self.compute_reward()
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset_idx(env_ids)
+        if self.cfg.sensor.add_depth:
+            
+            self.simulator.update_depth_images()
         self.compute_observations()  # in some cases a simulation step might be required to refresh some obs (for example body positions)
 
         self.llast_actions[:] = self.last_actions[:]

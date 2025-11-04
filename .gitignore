@@ -58,3 +58,4 @@ runs
 __pycache__
 wandb
 build
+*debug*

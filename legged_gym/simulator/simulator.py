@@ -3,12 +3,15 @@ if SIMULATOR == "genesis":
     # from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
     # from genesis.engine.solvers.avatar_solver import AvatarSolver
     from genesis.utils.geom import transform_by_quat, inv_quat
+    from PIL import Image as im
+    import cv2 as cv
 elif SIMULATOR == "isaacgym":
     from isaacgym import gymtorch, gymapi, gymutil
     # from isaacgym.torch_utils import *
 import torch
 import numpy as np
 import os
+
 
 from legged_gym.utils.terrain import Terrain
 from legged_gym.utils.math_utils import *
@@ -68,6 +71,8 @@ class GenesisSimulator(Simulator):
     def _parse_cfg(self):
         self.debug = self.cfg.env.debug
         self.control_dt = self.cfg.sim.dt * self.cfg.control.decimation
+        if self.cfg.sensor.add_depth:
+            self.frame_count = 0
 
     def _create_sim(self):
         # create scene
@@ -96,10 +101,6 @@ class GenesisSimulator(Simulator):
             ),
             show_viewer=not self.headless,
         )
-
-        # add camera if needed
-        if self.cfg.viewer.add_camera:
-            self._setup_camera()
 
         # add terrain
         mesh_type = self.cfg.terrain.mesh_type
@@ -152,6 +153,10 @@ class GenesisSimulator(Simulator):
             # visualize_contact=self.debug,
         )
 
+        # add camera if needed
+        if self.cfg.sensor.add_depth:
+            self._setup_camera()
+        
         # build
         self.scene.build(n_envs=self.num_envs)
 
@@ -269,6 +274,15 @@ class GenesisSimulator(Simulator):
         self.feet_vel = torch.zeros(
             (self.num_envs, len(self.feet_indices), 3), device=self.device, dtype=torch.float
         )
+        # depth images
+        if self.cfg.sensor.add_depth:
+            self.depth_images = torch.zeros(
+                (self.num_envs, 
+                 self.cfg.sensor.depth_camera_config.resolution[1], 
+                 self.cfg.sensor.depth_camera_config.resolution[0]), 
+                device=self.device, 
+                dtype=torch.float
+            )
         
         # Terrain information around feet
         if self.cfg.terrain.obtain_terrain_info_around_feet:
@@ -339,6 +353,17 @@ class GenesisSimulator(Simulator):
                 self.link_contact_forces[:, self.contact_state_link_indices, :], dim=-1) > 1.)
         
         self._check_base_pos_out_of_bound()
+    
+    def update_depth_images(self):
+        """ Renders the depth camera and retrieves the depth images
+        """
+        self.depth_images[:] = self.depth_camera.read_image()[:]
+        near_clip = self.cfg.sensor.depth_camera_config.near_clip
+        far_clip = self.cfg.sensor.depth_camera_config.far_clip
+        # clip the depth images to be within near and far clip
+        self.depth_images = torch.clip(self.depth_images, near_clip, far_clip)
+        # normalize the depth images to be within 0-1
+        self.depth_images = (self.depth_images - near_clip) / (far_clip - near_clip) - 0.5
 
     def push_robots(self):
         """ Random pushes the robots. Emulates an impulse by setting a randomized base velocity. 
@@ -530,6 +555,18 @@ class GenesisSimulator(Simulator):
         
         # print(f"shape of height_points: ", height_points.shape) # (num_envs, num_points, 3)
         self.scene.draw_debug_spheres(height_points[0, :], radius=0.02, color=(1, 0, 0, 0.7))  # only draw for the first env
+    
+    def draw_debug_depth_images(self):
+        if self.num_envs == 1:
+            depth = self.depth_images
+        else:
+            depth = self.depth_images[0]
+        pixel_values = ((depth + 0.5) * 255.0).cpu().numpy().astype(np.uint8)
+        image = im.fromarray(pixel_values, mode='L')
+        image.save("debug_depth_images/depth_frame%d.jpg" % self.frame_count)
+        # cv.imshow("Depth Camera", (255 * normalized_depth.cpu().numpy()).astype(np.uint8))
+        # cv.waitKey(1)
+        self.frame_count += 1
     
     # ------------- Callbacks --------------
 
@@ -799,16 +836,20 @@ class GenesisSimulator(Simulator):
     def _setup_camera(self):
         ''' Set camera position and direction
         '''
-        self.floating_camera = self.scene.add_camera(
-            res=(1280, 960),
-            pos=np.array(self.cfg.viewer.pos),
-            lookat=np.array(self.cfg.viewer.lookat),
-            fov=40,
-            GUI=True,
+        depth_pattern = gs.sensors.DepthCameraPattern(
+            res=self.cfg.sensor.depth_camera_config.resolution,
+            fov_horizontal=self.cfg.sensor.depth_camera_config.fov_horizontal,
         )
-
-        self._recording = False
-        self._recorded_frames = []
+        sensor_kwargs = dict(
+            entity_idx=self.robot.idx,
+            pos_offset=self.cfg.sensor.depth_camera_config.pos,
+            euler_offset=self.cfg.sensor.depth_camera_config.euler,
+            return_world_frame=False,
+            draw_debug=self.debug,
+            min_range=self.cfg.sensor.depth_camera_config.near_plane,
+            max_range=self.cfg.sensor.depth_camera_config.far_plane,
+        )
+        self.depth_camera = self.scene.add_sensor(gs.sensors.DepthCamera(pattern=depth_pattern, **sensor_kwargs))
 
 """ ********** Isaac Gym Simulator ********** """
 class IsaacGymSimulator(Simulator):

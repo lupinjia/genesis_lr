@@ -189,7 +189,19 @@ class LeggedRobotCfg(BaseConfig):
         pos = [2, 2, 2]       # [m]
         lookat = [0., 0, 1.]  # [m]
         rendered_envs_idx = [i for i in range(5)]  # number of environments to be rendered
-        add_camera = False
+    
+    class sensor:
+        add_depth = False
+        class depth_camera_config:
+            near_clip = 0.1
+            far_clip = 10.0
+            near_plane = 0.1
+            far_plane = 10.0
+            resolution = (80, 60)
+            fov_horizontal = 75
+            pos = (0.3, 0.0, 0.1)
+            euler = (0.0, 0.0, 0.0)
+            decimation = 5
 
     class sim:
         # Common
