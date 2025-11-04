@@ -1,5 +1,6 @@
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
+# TROn1 Point Foot
 class TRON1PFCfg( LeggedRobotCfg ):
     
     class env( LeggedRobotCfg.env ):

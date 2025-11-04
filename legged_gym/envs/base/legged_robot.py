@@ -450,7 +450,7 @@ class LeggedRobot(BaseTask):
         # Penalize base height away from target
         base_height = torch.mean(self.simulator.base_pos[:, 2].unsqueeze(
             1) - self.simulator.measured_heights, dim=1)
-        print(f"base height: {base_height}")
+        # print(f"base height: {base_height}")
         rew = torch.square(base_height - self.cfg.rewards.base_height_target)
         return rew
 
@@ -543,6 +543,7 @@ class LeggedRobot(BaseTask):
         Encourage feet to be close to desired height while swinging
         """
         foot_vel_xy_norm = torch.norm(self.simulator.feet_vel[:, :, :2], dim=-1)
+        # print(f"feet pos: {self.simulator.feet_pos[:, :, 2]}")
         clearance_error = torch.sum(
             foot_vel_xy_norm * torch.square(
                 self.simulator.feet_pos[:, :, 2] -
