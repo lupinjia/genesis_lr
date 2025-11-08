@@ -284,6 +284,29 @@ def stepping_stones_terrain(terrain, stone_size, stone_distance, max_height, pla
     terrain.height_field_raw[x1:x2, y1:y2] = 0
     return terrain
 
+def gap_terrain(terrain, gap_size, platform_size=1.):
+    gap_size = int(gap_size / terrain.horizontal_scale)
+    platform_size = int(platform_size / terrain.horizontal_scale)
+
+    center_x = terrain.length // 2
+    center_y = terrain.width // 2
+    x1 = platform_size // 2
+    x2 = x1 + gap_size
+    y1 = platform_size // 2
+    y2 = y1 + gap_size
+   
+    terrain.height_field_raw[center_x-x2 : center_x + x2, center_y-y2 : center_y + y2] = -1000
+    terrain.height_field_raw[center_x-x1 : center_x + x1, center_y-y1 : center_y + y1] = 0
+
+def pit_terrain(terrain, depth, platform_size=1.):
+    depth = int(depth / terrain.vertical_scale)
+    platform_size = int(platform_size / terrain.horizontal_scale / 2)
+    x1 = terrain.length // 2 - platform_size
+    x2 = terrain.length // 2 + platform_size
+    y1 = terrain.width // 2 - platform_size
+    y2 = terrain.width // 2 + platform_size
+    terrain.height_field_raw[x1:x2, y1:y2] = -depth
+
 
 def convert_heightfield_to_trimesh(height_field_raw, horizontal_scale, vertical_scale, slope_threshold=None):
     """

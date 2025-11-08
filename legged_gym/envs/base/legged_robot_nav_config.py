@@ -1,20 +1,20 @@
 from .base_config import BaseConfig
 
-class LeggedRobotCfg(BaseConfig):
+class LeggedRobotNavCfg(BaseConfig):
     class env:
         num_envs = 4096
-        num_observations = 48
+        num_observations = 50
         num_privileged_obs = None # if not None a priviledge_obs_buf will be returned by step() (critic obs for assymetric training). None is returned otherwise 
         num_actions = 12
         send_timeouts = True # send time out information to the algorithm
-        episode_length_s = 20 # episode length in seconds
+        episode_length_s = 10 # episode length in seconds
         debug = False # if debugging, visualize contacts, etc.
         env_spacing = 1.0
         fail_to_terminal_time_s = 0.5 # time before a fail state leads to environment reset, refer to https://github.com/limxdynamics/tron1-rl-isaacgym/tree/master
 
     class terrain:
-        mesh_type = 'plane' # "heightfield" # none, plane, heightfield
-        plane_length = 200.0 # [m]. plane size is 200x200x10 by default
+        mesh_type = 'plane'    # "heightfield" # none, plane, heightfield
+        plane_length = 200.0   # [m]. plane size is 200x200x10 by default
         horizontal_scale = 0.1 # [m]
         vertical_scale = 0.005 # [m]
         border_size = 5 # [m]
@@ -32,7 +32,7 @@ class LeggedRobotCfg(BaseConfig):
         max_init_terrain_level = 1 # starting curriculum state
         terrain_length = 6.0
         terrain_width = 6.0
-        plaform_size = 3.0
+        platform_size = 2.5
         num_rows = 4  # number of terrain rows (levels)
         num_cols = 4  # number of terrain cols (types)
         # terrain types: [smooth slope, rough slope, stairs up, stairs down, discrete]
@@ -43,24 +43,24 @@ class LeggedRobotCfg(BaseConfig):
     class commands:
         curriculum = False
         max_curriculum = 1.
-        num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
-        resampling_time = 10. # time before command are changed[s]
-        heading_command = True # if true: compute ang vel command from heading error
-        curriculum_threshold = 0.8 # threshold for curriculum learning, if the tracking reward is above this threshold, increase the command range
+        num_commands = 5      # default: position of the target point(x, y, z) in base frame, heading, time left to target
+        default_pos_z = 0.34  # base height relative to the ground
         class ranges:
-            lin_vel_x = [-1.0, 1.0] # min max [m/s]
-            lin_vel_y = [-1.0, 1.0]   # min max [m/s]
-            ang_vel_yaw = [-1, 1]    # min max [rad/s]
-            heading = [-3.14, 3.14]
+            pos_x = [-6.0, 6.0]     # m, relative to the robot's base
+            pos_y = [-6.0, 6.0]     # m
+            pos_z = [-0.06, 0.01]   # m
+            heading = [-3.14, 3.14] # rad
 
     class init_state:
-        pos = [0.0, 0.0, 1.] # x,y,z [m]
+        pos = [0.0, 0.0, 1.]           # x,y,z [m]
         rot_gs = [1.0, 0.0, 0.0, 0.0]  # w,x,y,z [quat]
         rot_gym = [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat], quaternion sequence definitions are different in gym and genesis
         lin_vel = [0.0, 0.0, 0.0]  # x,y,z [m/s]
         ang_vel = [0.0, 0.0, 0.0]  # x,y,z [rad/s]
         # initial state randomization
-        base_ang_random_scale = 0.
+        roll_random_scale = 0.0    # [rad]
+        pitch_random_scale = 0.0   # [rad]
+        yaw_random_scale = 0.0     # [rad]
         default_joint_angles = { # target angles when action = 0.0
             "joint_a": 0., 
             "joint_b": 0.}
@@ -89,6 +89,7 @@ class LeggedRobotCfg(BaseConfig):
         # For Genesis
         links_to_keep = []          # links that are not merged because of fixed joints
         dof_names = ["joint_a", "joint_b"]
+        dof_vel_limits = [20.0, 20.0] # [rad/s], corresponds to dof_names order
         self_collisions_gs = True   # enable self collisions by default
         # For IsaacGym
         disable_gravity = False
@@ -132,8 +133,8 @@ class LeggedRobotCfg(BaseConfig):
     class rewards:
         class scales:
             termination = -0.0
-            tracking_lin_vel = 0 # 1.0
-            tracking_ang_vel = 0 # 0.5
+            tracking_target_pos = 0.0
+            tracking_target_orientation = 0.0
             lin_vel_z = 0 # -2.0
             ang_vel_xy = 0 # -0.05
             orientation = -0.
@@ -148,6 +149,11 @@ class LeggedRobotCfg(BaseConfig):
             stand_still = -0.
         
         only_positive_rewards = True
+        tracking_duration_pos_s = 4.0         # duration for tracking pos rewards active
+        tracking_duration_orientation_s = 4.0 # duration for tracking orientation rewards active
+        stall_distance_threshold = 0.5 # [m], min distance to target for stall penalty to be active
+        stall_velocity_threshold = 0.1 # [m/s], max xy velocity for stall penalty to be active
+        pos_error_threshold = 2.0 # if the error between target and robot base is lower than this threshold, orientation tracking will be activated
         tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
         soft_dof_pos_limit = 1. # percentage of urdf limits, values above this limit are penalized
         soft_dof_vel_limit = 1.
@@ -166,6 +172,9 @@ class LeggedRobotCfg(BaseConfig):
             dof_pos = 1.0
             dof_vel = 0.05
             height_measurements = 5.0
+            base_pos = 0.2
+            base_orientation = 1/3.15
+            time_to_target = 0.25
         clip_observations = 100.
         clip_actions = 100.
 
@@ -231,7 +240,7 @@ class LeggedRobotCfg(BaseConfig):
             default_buffer_size_multiplier = 5
             contact_collection = 2 # 0: never, 1: last sub-step, 2: all sub-steps (default=2)
     
-class LeggedRobotCfgPPO(BaseConfig):
+class LeggedRobotNavCfgPPO(BaseConfig):
     seed = 1
     runner_class_name = 'OnPolicyRunner'
     class policy:
