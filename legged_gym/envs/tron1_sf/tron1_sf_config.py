@@ -86,6 +86,8 @@ class TRON1SFCfg( LeggedRobotCfg ):
             "knee_R_Joint",
             "ankle_R_Joint",
         ]
+        dof_vel_limits = [15.0, 15.0, 15.0, 15.0,
+                          15.0, 15.0, 15.0, 15.0] # [rad/s], corresponds to dof_names order, values from urdf
         links_to_keep = []
         # For IsaacGym
         flip_visual_attachments = False # Some .obj meshes must be flipped from y-up to z-up

@@ -79,6 +79,8 @@ class TRON1PF_TSCfg( LeggedRobotCfg ):
             "hip_R_Joint",
             "knee_R_Joint",
         ]
+        dof_vel_limits = [15.0, 15.0, 15.0, 
+                          15.0, 15.0, 15.0] # [rad/s], corresponds to dof_names order, values from urdf
         links_to_keep = ['foot_L_Link', 'foot_R_Link']# Genesis: 
         # IsaacGym:
         flip_visual_attachments = False

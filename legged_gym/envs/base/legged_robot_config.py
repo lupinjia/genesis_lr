@@ -60,7 +60,9 @@ class LeggedRobotCfg(BaseConfig):
         lin_vel = [0.0, 0.0, 0.0]  # x,y,z [m/s]
         ang_vel = [0.0, 0.0, 0.0]  # x,y,z [rad/s]
         # initial state randomization
-        base_ang_random_scale = 0.
+        roll_random_scale = 0.0
+        pitch_random_scale = 0.0
+        yaw_random_scale = 0.0
         default_joint_angles = { # target angles when action = 0.0
             "joint_a": 0., 
             "joint_b": 0.}

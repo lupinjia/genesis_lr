@@ -90,6 +90,10 @@ class Go2TSCfg( LeggedRobotCfg ):
             'RL_hip_joint',
             'RL_thigh_joint',
             'RL_calf_joint',]
+        dof_vel_limits = [30.1, 30.1, 15.7, 
+                          30.1, 30.1, 15.7, 
+                          30.1, 30.1, 15.7, 
+                          30.1, 30.1, 15.7] # [rad/s], corresponds to dof_names order, values from urdf
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
         # IsaacGym:
         flip_visual_attachments = False
