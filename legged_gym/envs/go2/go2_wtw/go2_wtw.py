@@ -127,6 +127,7 @@ class GO2WTW(LeggedRobot):
         self.feet_air_time[env_ids] = 0.
         self.episode_length_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
+        self.fail_buf[env_ids] = 0
         # Periodic Reward Framework buffer reset
         self.gait_time[env_ids] = 0.0
         self.phi[env_ids] = 0.0
