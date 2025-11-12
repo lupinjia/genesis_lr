@@ -32,7 +32,7 @@ class LeggedRobotCfg(BaseConfig):
         max_init_terrain_level = 1 # starting curriculum state
         terrain_length = 6.0
         terrain_width = 6.0
-        plaform_size = 3.0
+        platform_size = 3.0
         num_rows = 4  # number of terrain rows (levels)
         num_cols = 4  # number of terrain cols (types)
         # terrain types: [smooth slope, rough slope, stairs up, stairs down, discrete]

@@ -10,7 +10,7 @@ class Go2TSDepthCfg( LeggedRobotCfg ):
         num_history_obs = int(num_observations * frame_stack)
         num_latent_dims = num_privileged_obs
         c_frame_stack = 5
-        single_critic_obs_len = num_observations + 34 + 81 + 12 + 3
+        single_critic_obs_len = num_observations + 34 + 12 + 3 + 81
         num_critic_obs = c_frame_stack * single_critic_obs_len
         # Privileged_obs and critic_obs are seperated here
         # privileged_obs contains information given to privileged encoder
@@ -24,8 +24,10 @@ class Go2TSDepthCfg( LeggedRobotCfg ):
             mesh_type = "heightfield" # for genesis
         else:
             mesh_type = "trimesh"  # for isaacgym
+        horizontal_scale = 0.1 # [m]
+        vertical_scale = 0.005 # [m]
         restitution = 0.
-        border_size = 20.0 # [m]
+        border_size = 5.0 # [m]
         curriculum = True
         # rough terrain only:
         obtain_terrain_info_around_feet = True

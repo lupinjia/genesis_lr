@@ -203,7 +203,8 @@ class GenesisSimulator(Simulator):
         # dof position limits
         self.dof_pos_limits = torch.stack(
             self.robot.get_dofs_limit(self.motors_dof_idx), dim=1)
-        self.dof_vel_limits = torch.tensor(self.cfg.asset.dof_vel_limits, device=self.device).unsqueeze(0)
+        if hasattr(self.cfg.asset, "dof_vel_limits"):
+            self.dof_vel_limits = torch.tensor(self.cfg.asset.dof_vel_limits, device=self.device).unsqueeze(0)
         self.torque_limits = self.robot.get_dofs_force_range(self.motors_dof_idx)[
             1]
         for i in range(self.dof_pos_limits.shape[0]):

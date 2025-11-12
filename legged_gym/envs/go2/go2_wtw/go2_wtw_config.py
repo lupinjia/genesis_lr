@@ -67,10 +67,6 @@ class GO2WTWCfg(LeggedRobotCfg):
             "RL_thigh_joint",
             "RL_calf_joint"
         ]
-        dof_vel_limits = [30.1, 30.1, 15.7, 
-                          30.1, 30.1, 15.7, 
-                          30.1, 30.1, 15.7, 
-                          30.1, 30.1, 15.7] # [rad/s], corresponds to dof_names order, values from urdf
         links_to_keep = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot']
         # For IsaacGym
         flip_visual_attachments = False # Some .obj meshes must be flipped from y-up to z-up
