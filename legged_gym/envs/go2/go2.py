@@ -59,11 +59,6 @@ class GO2(LeggedRobot):
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - \
                              1) * self.noise_scale_vec
 
-        if self.cfg.domain_rand.randomize_ctrl_delay:
-            # normalize to [0, 1]
-            ctrl_delay = (self.action_delay /
-                          self.cfg.domain_rand.ctrl_delay_step_range[1]).unsqueeze(1)
-
         if self.num_privileged_obs is not None:
             self.privileged_obs_buf = torch.cat(
                 (

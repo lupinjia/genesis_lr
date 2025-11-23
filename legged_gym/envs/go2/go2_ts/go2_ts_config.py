@@ -1,15 +1,16 @@
+from legged_gym import *
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 class Go2TSCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
         num_observations = 45  # num_obs
-        num_privileged_obs = 94
+        num_privileged_obs = 97
         frame_stack = 20    # number of frames to stack for obs_history
         num_history_obs = int(num_observations * frame_stack)
         num_latent_dims = num_privileged_obs
         c_frame_stack = 5
-        single_critic_obs_len = num_observations + 34 + 81 + 12
+        single_critic_obs_len = num_observations + 34 + 81 + 12 + 3
         num_critic_obs = c_frame_stack * single_critic_obs_len
         # Privileged_obs and critic_obs are seperated here
         # privileged_obs contains information given to privileged encoder
@@ -19,10 +20,12 @@ class Go2TSCfg( LeggedRobotCfg ):
         env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        mesh_type = "heightfield" # for genesis
-        # mesh_type = "trimesh"  # for isaacgym
+        if SIMULATOR == "genesis":
+            mesh_type = "heightfield" # for genesis
+        else:
+            mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
-        border_size = 10.0 # [m]
+        border_size = 20.0 # [m]
         curriculum = True
         # rough terrain only:
         obtain_terrain_info_around_feet = True
@@ -58,8 +61,8 @@ class Go2TSCfg( LeggedRobotCfg ):
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
         # control_type = 'P'
-        stiffness = {'joint': 20.}   # [N*m/rad]
-        damping = {'joint': 0.5}     # [N*m*s/rad]
+        stiffness = {'joint': 30.}   # [N*m/rad]
+        damping = {'joint': 0.75}     # [N*m*s/rad]
         action_scale = 0.25 # action scale: target angle = actionScale * action + defaultAngle
         dt =  0.02  # control frequency 50Hz
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
@@ -93,7 +96,7 @@ class Go2TSCfg( LeggedRobotCfg ):
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.34
+        base_height_target = 0.4
         foot_clearance_target = 0.09 # desired foot clearance above ground [m]
         foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
@@ -107,12 +110,12 @@ class Go2TSCfg( LeggedRobotCfg ):
             tracking_ang_vel = 0.5
             # smooth
             lin_vel_z = -2.0
+            base_height = -1.0
             ang_vel_xy = -0.05
-            dof_vel = -2.e-5
+            dof_power = -2.e-4
             dof_acc = -2.e-7
             action_rate = -0.01
             action_smoothness = -0.01
-            torques = -2.e-4
             # gait
             feet_air_time = 1.0
             foot_clearance = 0.2
@@ -169,9 +172,9 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticTS"
         algorithm_class_name = "PPO_TS"
-        run_name = 'gs_ts_MLP'
+        run_name = 'ts_with_lin_vel'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Oct10_16-33-50_gs_ts_TCN"
+        load_run = "Oct31_17-42-50_gs_ts_blind"
         checkpoint = -1
-        max_iterations = 2000
+        max_iterations = 2500

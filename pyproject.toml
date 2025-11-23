@@ -40,4 +40,4 @@ genesis = [
 ]
 
 [tool.setuptools]
-packages = ['rsl_rl', 'resources', 'legged_gym', 'test_resources']
+packages = ['rsl_rl', 'resources', 'legged_gym']

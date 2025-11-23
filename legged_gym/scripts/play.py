@@ -16,14 +16,35 @@ def play(args):
         )
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
-    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 5)
+    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 10)
     env_cfg.viewer.rendered_envs_idx = list(range(env_cfg.env.num_envs))
     if env_cfg.terrain.mesh_type == "plane":
         for i in range(2):
             env_cfg.viewer.pos[i] = env_cfg.viewer.pos[i] - env_cfg.terrain.plane_length / 4
             env_cfg.viewer.lookat[i] = env_cfg.viewer.lookat[i] - env_cfg.terrain.plane_length / 4
+    elif env_cfg.terrain.mesh_type in ["heightfield", "trimesh"]:
+        env_cfg.terrain.num_rows = 2
+        env_cfg.terrain.num_cols = 2
+        env_cfg.terrain.curriculum = False
+        env_cfg.terrain.selected = True
+        
+        # stairs
+        env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
+                                        "step_width": 0.31, "step_height": -0.1, "platform_size": 3.0}
+        # single stair
+        # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
+        #                                   "step_width": 1.0, "step_height": -0.05, "platform_size": 3.0}
+        # slope
+        # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_sloped_terrain",
+        #                                   "slope": -0.4, "platform_size": 3.0}
+        # # discrete obstacles
+        # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.discrete_obstacles_terrain",
+        #                                   "max_height": 0.1,
+        #                                   "min_size": 1.0,
+        #                                   "max_size": 2.0,
+        #                                   "num_rects": 20,
+        #                                   "platform_size": 3.0}
     env_cfg.env.debug = True
-    env_cfg.env.episode_length_s = 5.0
     env_cfg.noise.add_noise = True
 
     # prepare environment

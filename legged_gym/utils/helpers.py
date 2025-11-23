@@ -111,6 +111,8 @@ def update_cfg_from_args(env_cfg, cfg_train, args):
             cfg_train.runner.max_iterations = args.max_iterations
         if args.resume:
             cfg_train.runner.resume = args.resume
+        if args.sync_wandb:
+            cfg_train.runner.sync_wandb = args.sync_wandb
 
     return env_cfg, cfg_train
 
@@ -123,6 +125,7 @@ def get_args():
     parser.add_argument('--max_iterations', type=int, default=None)
     parser.add_argument('--resume',         action='store_true', default=False)
     parser.add_argument('-o', '--offline',  action='store_true', default=False)
+    parser.add_argument('--sync_wandb',     action='store_true', default=False)
 
     parser.add_argument('--debug',          action='store_true', default=False)
     parser.add_argument('--ckpt',           type=int, default=1000)

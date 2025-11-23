@@ -10,6 +10,7 @@ class LeggedRobotCfg(BaseConfig):
         episode_length_s = 20 # episode length in seconds
         debug = False # if debugging, visualize contacts, etc.
         env_spacing = 1.0
+        fail_to_terminal_time_s = 0.5 # time before a fail state leads to environment reset, refer to https://github.com/limxdynamics/tron1-rl-isaacgym/tree/master
 
     class terrain:
         mesh_type = 'plane' # "heightfield" # none, plane, heightfield
@@ -31,6 +32,7 @@ class LeggedRobotCfg(BaseConfig):
         max_init_terrain_level = 1 # starting curriculum state
         terrain_length = 6.0
         terrain_width = 6.0
+        platform_size = 3.0
         num_rows = 4  # number of terrain rows (levels)
         num_cols = 4  # number of terrain cols (types)
         # terrain types: [smooth slope, rough slope, stairs up, stairs down, discrete]
@@ -58,7 +60,9 @@ class LeggedRobotCfg(BaseConfig):
         lin_vel = [0.0, 0.0, 0.0]  # x,y,z [m/s]
         ang_vel = [0.0, 0.0, 0.0]  # x,y,z [rad/s]
         # initial state randomization
-        base_ang_random_scale = 0.
+        roll_random_scale = 0.0
+        pitch_random_scale = 0.0
+        yaw_random_scale = 0.0
         default_joint_angles = { # target angles when action = 0.0
             "joint_a": 0., 
             "joint_b": 0.}
@@ -177,14 +181,30 @@ class LeggedRobotCfg(BaseConfig):
             ang_vel = 0.2
             gravity = 0.05
             height_measurements = 0.1
-
+    
+    class constraints:
+        class limits:
+            pass
+        
     # viewer camera:
     class viewer:
         ref_env = 0
         pos = [2, 2, 2]       # [m]
         lookat = [0., 0, 1.]  # [m]
         rendered_envs_idx = [i for i in range(5)]  # number of environments to be rendered
-        add_camera = False
+    
+    class sensor:
+        add_depth = False
+        class depth_camera_config:
+            near_clip = 0.1
+            far_clip = 10.0
+            near_plane = 0.1
+            far_plane = 10.0
+            resolution = (80, 60)
+            fov_horizontal = 75
+            pos = (0.3, 0.0, 0.1)
+            euler = (0.0, 0.0, 0.0)
+            decimation = 5
 
     class sim:
         # Common
@@ -248,6 +268,7 @@ class LeggedRobotCfgPPO(BaseConfig):
         max_iterations = 1500 # number of policy updates
 
         # logging
+        sync_wandb = False  # whether to sync log to wandb
         save_interval = 50 # check for potential saves every this many iterations
         experiment_name = 'test'
         run_name = ''

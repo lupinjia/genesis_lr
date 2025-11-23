@@ -3,12 +3,15 @@ if SIMULATOR == "genesis":
     # from genesis.engine.solvers.rigid.rigid_solver_decomp import RigidSolver
     # from genesis.engine.solvers.avatar_solver import AvatarSolver
     from genesis.utils.geom import transform_by_quat, inv_quat
+    from PIL import Image as im
+    import cv2 as cv
 elif SIMULATOR == "isaacgym":
     from isaacgym import gymtorch, gymapi, gymutil
     # from isaacgym.torch_utils import *
 import torch
 import numpy as np
 import os
+
 
 from legged_gym.utils.terrain import Terrain
 from legged_gym.utils.math_utils import *
@@ -68,6 +71,8 @@ class GenesisSimulator(Simulator):
     def _parse_cfg(self):
         self.debug = self.cfg.env.debug
         self.control_dt = self.cfg.sim.dt * self.cfg.control.decimation
+        if self.cfg.sensor.add_depth:
+            self.frame_count = 0
 
     def _create_sim(self):
         # create scene
@@ -76,13 +81,15 @@ class GenesisSimulator(Simulator):
                 dt=self.sim_params["dt"],
                 substeps=self.sim_params["substeps"]),
             viewer_options=gs.options.ViewerOptions(
-                max_FPS=int(1 / self.control_dt * self.cfg.control.decimation),
+                # max_FPS=int(1 / self.control_dt * self.cfg.control.decimation),
                 camera_pos=np.array(self.cfg.viewer.pos),
                 camera_lookat=np.array(self.cfg.viewer.lookat),
                 camera_fov=40,
             ),
             vis_options=gs.options.VisOptions(
-                rendered_envs_idx=self.cfg.viewer.rendered_envs_idx),
+                rendered_envs_idx=self.cfg.viewer.rendered_envs_idx,
+                shadow=False,
+                ),
             rigid_options=gs.options.RigidOptions(
                 dt=self.sim_params["dt"],
                 constraint_solver=gs.constraint_solver.Newton,
@@ -94,10 +101,6 @@ class GenesisSimulator(Simulator):
             ),
             show_viewer=not self.headless,
         )
-
-        # add camera if needed
-        if self.cfg.viewer.add_camera:
-            self._setup_camera()
 
         # add terrain
         mesh_type = self.cfg.terrain.mesh_type
@@ -150,6 +153,10 @@ class GenesisSimulator(Simulator):
             # visualize_contact=self.debug,
         )
 
+        # add camera if needed
+        if self.cfg.sensor.add_depth:
+            self._setup_camera()
+        
         # build
         self.scene.build(n_envs=self.num_envs)
 
@@ -196,6 +203,8 @@ class GenesisSimulator(Simulator):
         # dof position limits
         self.dof_pos_limits = torch.stack(
             self.robot.get_dofs_limit(self.motors_dof_idx), dim=1)
+        if hasattr(self.cfg.asset, "dof_vel_limits"):
+            self.dof_vel_limits = torch.tensor(self.cfg.asset.dof_vel_limits, device=self.device).unsqueeze(0)
         self.torque_limits = self.robot.get_dofs_force_range(self.motors_dof_idx)[
             1]
         for i in range(self.dof_pos_limits.shape[0]):
@@ -242,6 +251,8 @@ class GenesisSimulator(Simulator):
             (self.num_envs, 3), device=self.device, dtype=torch.float)
         self.base_ang_vel = torch.zeros(
             (self.num_envs, 3), device=self.device, dtype=torch.float)
+        self.last_base_lin_vel = torch.zeros_like(self.base_lin_vel)
+        self.last_base_ang_vel = torch.zeros_like(self.base_ang_vel)
         self.projected_gravity = torch.zeros(
             (self.num_envs, 3), device=self.device, dtype=torch.float)
         self.global_gravity = torch.tensor([0.0, 0.0, -1.0], device=self.device, dtype=torch.float).repeat(
@@ -267,6 +278,15 @@ class GenesisSimulator(Simulator):
         self.feet_vel = torch.zeros(
             (self.num_envs, len(self.feet_indices), 3), device=self.device, dtype=torch.float
         )
+        # depth images
+        if self.cfg.sensor.add_depth:
+            self.depth_images = torch.zeros(
+                (self.num_envs, 
+                 self.cfg.sensor.depth_camera_config.resolution[1], 
+                 self.cfg.sensor.depth_camera_config.resolution[0]), 
+                device=self.device, 
+                dtype=torch.float
+            )
         
         # Terrain information around feet
         if self.cfg.terrain.obtain_terrain_info_around_feet:
@@ -337,6 +357,17 @@ class GenesisSimulator(Simulator):
                 self.link_contact_forces[:, self.contact_state_link_indices, :], dim=-1) > 1.)
         
         self._check_base_pos_out_of_bound()
+    
+    def update_depth_images(self):
+        """ Renders the depth camera and retrieves the depth images
+        """
+        self.depth_images[:] = self.depth_camera.read_image()[:]
+        near_clip = self.cfg.sensor.depth_camera_config.near_clip
+        far_clip = self.cfg.sensor.depth_camera_config.far_clip
+        # clip the depth images to be within near and far clip
+        self.depth_images = torch.clip(self.depth_images, near_clip, far_clip)
+        # normalize the depth images to be within 0-1
+        self.depth_images = (self.depth_images - near_clip) / (far_clip - near_clip) - 0.5
 
     def push_robots(self):
         """ Random pushes the robots. Emulates an impulse by setting a randomized base velocity. 
@@ -369,6 +400,8 @@ class GenesisSimulator(Simulator):
             self._randomize_pd_gain(env_ids)
         
         self.last_dof_vel[env_ids] = 0.
+        self.last_base_lin_vel[env_ids] = 0.
+        self.last_base_ang_vel[env_ids] = 0.
     
     def reset_dofs(self, env_ids, dof_pos, dof_vel):
         """ Resets DOF position and velocities of selected environmments
@@ -529,6 +562,18 @@ class GenesisSimulator(Simulator):
         # print(f"shape of height_points: ", height_points.shape) # (num_envs, num_points, 3)
         self.scene.draw_debug_spheres(height_points[0, :], radius=0.02, color=(1, 0, 0, 0.7))  # only draw for the first env
     
+    def draw_debug_depth_images(self):
+        if self.num_envs == 1:
+            depth = self.depth_images
+        else:
+            depth = self.depth_images[0]
+        pixel_values = ((depth + 0.5) * 255.0).cpu().numpy().astype(np.uint8)
+        image = im.fromarray(pixel_values, mode='L')
+        image.save("debug_depth_images/depth_frame%d.jpg" % self.frame_count)
+        # cv.imshow("Depth Camera", (255 * normalized_depth.cpu().numpy()).astype(np.uint8))
+        # cv.waitKey(1)
+        self.frame_count += 1
+    
     # ------------- Callbacks --------------
 
     def _init_height_points(self):
@@ -573,8 +618,7 @@ class GenesisSimulator(Simulator):
         if self.custom_origins:
             self.base_pos[env_ids] = self.base_init_pos
             self.base_pos[env_ids] += self.env_origins[env_ids]
-            self.base_pos[env_ids,
-                :2] += torch_rand_float(-1.0, 1.0, (len(env_ids), 2), self.device)
+            self.base_pos[env_ids, :2] += torch_rand_float(-0.5, 0.5, (len(env_ids), 2), self.device)
         else:
             self.base_pos[env_ids] = self.base_init_pos
             self.base_pos[env_ids] += self.env_origins[env_ids]
@@ -583,12 +627,14 @@ class GenesisSimulator(Simulator):
 
         # base quat
         self.base_quat[env_ids, :] = self.base_init_quat.reshape(1, -1)
-        base_orien_scale = self.cfg.init_state.base_ang_random_scale
+        roll_random_scale = self.cfg.init_state.roll_random_scale
+        pitch_random_scale = self.cfg.init_state.pitch_random_scale
+        yaw_random_scale = self.cfg.init_state.yaw_random_scale
         self.base_quat[env_ids, :] = \
             quat_from_euler_xyz(
-                torch_rand_float(-base_orien_scale, base_orien_scale, (len(env_ids), 1), self.device).view(-1),
-                torch_rand_float(-base_orien_scale, base_orien_scale, (len(env_ids), 1), self.device).view(-1),
-                torch_rand_float(-base_orien_scale, base_orien_scale, (len(env_ids), 1), self.device).view(-1)
+                torch_rand_float(-roll_random_scale, roll_random_scale, (len(env_ids), 1), self.device).view(-1),
+                torch_rand_float(-pitch_random_scale, pitch_random_scale, (len(env_ids), 1), self.device).view(-1),
+                torch_rand_float(-yaw_random_scale, yaw_random_scale, (len(env_ids), 1), self.device).view(-1)
             )
         self.base_quat_gs[env_ids, 0] = self.base_quat[env_ids, 3]  # xyzw to wxyz
         self.base_quat_gs[env_ids, 1:4] = self.base_quat[env_ids, 0:3] # xyzw to wxyz
@@ -800,16 +846,20 @@ class GenesisSimulator(Simulator):
     def _setup_camera(self):
         ''' Set camera position and direction
         '''
-        self.floating_camera = self.scene.add_camera(
-            res=(1280, 960),
-            pos=np.array(self.cfg.viewer.pos),
-            lookat=np.array(self.cfg.viewer.lookat),
-            fov=40,
-            GUI=True,
+        depth_pattern = gs.sensors.DepthCameraPattern(
+            res=self.cfg.sensor.depth_camera_config.resolution,
+            fov_horizontal=self.cfg.sensor.depth_camera_config.fov_horizontal,
         )
-
-        self._recording = False
-        self._recorded_frames = []
+        sensor_kwargs = dict(
+            entity_idx=self.robot.idx,
+            pos_offset=self.cfg.sensor.depth_camera_config.pos,
+            euler_offset=self.cfg.sensor.depth_camera_config.euler,
+            return_world_frame=False,
+            draw_debug=self.debug,
+            min_range=self.cfg.sensor.depth_camera_config.near_plane,
+            max_range=self.cfg.sensor.depth_camera_config.far_plane,
+        )
+        self.depth_camera = self.scene.add_sensor(gs.sensors.DepthCamera(pattern=depth_pattern, **sensor_kwargs))
 
 """ ********** Isaac Gym Simulator ********** """
 class IsaacGymSimulator(Simulator):
@@ -998,6 +1048,8 @@ class IsaacGymSimulator(Simulator):
         self.last_dof_vel = torch.zeros_like(self.dof_vel)
         self.base_lin_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 7:10])
         self.base_ang_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 10:13])
+        self.last_base_lin_vel = torch.zeros_like(self.base_lin_vel)
+        self.last_base_ang_vel = torch.zeros_like(self.base_ang_vel)
         self.projected_gravity = quat_rotate_inverse(self.base_quat, self.global_gravity)
         
         # Terrain information around feet
@@ -1105,6 +1157,29 @@ class IsaacGymSimulator(Simulator):
 
         self.measured_heights = heights.view(self.num_envs, -1) * self.cfg.terrain.vertical_scale
     
+    def get_height_at(self, pos_xy):
+        """ Get height of the terrain at specific (x, y) location
+
+        Args:
+            pos_xy (torch.tensor): (x, y) locations to sample heights at, shape: (len(env_ids), 2)
+        Returns:
+            torch.tensor: heights at the specified (x, y) locations, shape: (len(env_ids),)
+        """
+        if self.cfg.terrain.mesh_type == 'plane':
+            return torch.zeros_like(pos_xy[:, 0], device=self.device, requires_grad=False)
+        elif self.cfg.terrain.mesh_type == 'none':
+            raise NameError(
+                "Can't measure height with terrain mesh type 'none'")
+
+        points = pos_xy + self.cfg.terrain.border_size # add border size to align the origin with heightfield raw
+        points = (points/self.cfg.terrain.horizontal_scale).long()
+        px = points[:, 0]
+        py = points[:, 1]
+        px = torch.clip(px, 0, self.height_samples.shape[0]-2)
+        py = torch.clip(py, 0, self.height_samples.shape[1]-2)
+        
+        return self.height_samples[px, py] * self.cfg.terrain.vertical_scale
+    
     def calc_terrain_info_around_feet(self):
         """ Finds neighboring points around each foot for terrain height measurement."""
         # Foot position
@@ -1143,24 +1218,45 @@ class IsaacGymSimulator(Simulator):
             Default behaviour: draws height measurement points
         """
         # draw height lines
-        if not self.terrain.cfg.measure_heights:
+        if not self.cfg.terrain.measure_heights:
             return
-        # self.gym.clear_lines(self.viewer)
-        # self.gym.refresh_rigid_body_state_tensor(self.sim)
-        # for i in range(self.num_envs):
-        #     base_pos = (self.root_states[i, :3]).cpu().numpy()
-        #     # draw normal vector
-        #     base_position = gymapi.Vec3(
-        #         base_pos[0], base_pos[1], base_pos[2])
-        #     normal_vector = gymapi.Vec3(
-        #         base_pos[0]+self.normal_vector_around_base[i, 0].item(), 
-        #         base_pos[1]+self.normal_vector_around_base[i, 1].item(), 
-        #         base_pos[2]+self.normal_vector_around_base[i, 2].item())
-        #     projected_gravity = gymapi.Vec3(
-        #         base_pos[0]-self.projected_gravity[i, 0].item(), base_pos[1]-self.projected_gravity[i, 1].item(), base_pos[2]+self.projected_gravity[i, 2].item())
-        #     # draw projected gravity vector
-        #     gymutil.draw_line(base_position, projected_gravity, gymapi.Vec3(0, 1, 0), self.gym, self.viewer, self.envs[i])
-        #     gymutil.draw_line(base_position, normal_vector, gymapi.Vec3(1, 0, 0), self.gym, self.viewer, self.envs[i])
+        self.gym.clear_lines(self.viewer)
+        self.gym.refresh_rigid_body_state_tensor(self.sim)
+    
+    def draw_height_points(self):
+        # draw height lines
+        if not self.cfg.terrain.measure_heights:
+            return
+        self.gym.clear_lines(self.viewer)
+        self.gym.refresh_rigid_body_state_tensor(self.sim)
+        sphere_geom = gymutil.WireframeSphereGeometry(0.02, 4, 4, None, color=(1, 1, 0))
+        for i in range(self.num_envs):
+            base_pos = (self.root_states[i, :3]).cpu().numpy()
+            heights = self.measured_heights[i].cpu().numpy()
+            height_points = quat_apply_yaw(self.base_quat[i].repeat(heights.shape[0]), self.height_points[i]).cpu().numpy()
+            for j in range(heights.shape[0]):
+                x = height_points[j, 0] + base_pos[0]
+                y = height_points[j, 1] + base_pos[1]
+                z = heights[j]
+                sphere_pose = gymapi.Transform(gymapi.Vec3(x, y, z), r=None)
+                gymutil.draw_lines(sphere_geom, self.gym, self.viewer, self.envs[i], sphere_pose)
+    
+    def draw_debug_boxes(self, pos, orientation):
+        """
+        Draws debug boxes at specified positions and orientations.
+        Args:
+            pos (torch.Tensor): Tensor of shape (num_envs, 3) specifying the positions of the boxes.
+            orientation (torch.Tensor): Tensor of shape (num_envs, 4) specifying the orientations (quaternions) of the boxes.
+        """
+        self.gym.clear_lines(self.viewer)
+        self.gym.refresh_rigid_body_state_tensor(self.sim)
+        box_geom = gymutil.WireframeBoxGeometry(0.5, 0.25, 0.25, color=(0, 1, 0))
+        for i in range(self.num_envs):
+            box_pos = pos[i].cpu().numpy()
+            box_quat = orientation[i].cpu().numpy()
+            box_pose = gymapi.Transform(gymapi.Vec3(box_pos[0], box_pos[1], box_pos[2]),
+                                        gymapi.Quat(box_quat[0], box_quat[1], box_quat[2], box_quat[3]))
+            gymutil.draw_lines(box_geom, self.gym, self.viewer, self.envs[i], box_pose)
     
     def push_robots(self):
         max_vel = self.cfg.domain_rand.max_push_vel_xy
@@ -1176,7 +1272,10 @@ class IsaacGymSimulator(Simulator):
                 self.cfg.domain_rand.kp_range[0], self.cfg.domain_rand.kp_range[1], (len(env_ids), self.num_actions), device=self.device)
             self._kd_scale[env_ids] = torch_rand_float(
                 self.cfg.domain_rand.kd_range[0], self.cfg.domain_rand.kd_range[1], (len(env_ids), self.num_actions), device=self.device)
+        
         self.last_dof_vel[env_ids] = 0.
+        self.last_base_lin_vel[env_ids] = 0.
+        self.last_base_ang_vel[env_ids] = 0.
         
         # fix reset gravity bug
         self.base_quat[env_ids] = self.root_states[env_ids, 3:7]
@@ -1286,10 +1385,20 @@ class IsaacGymSimulator(Simulator):
         if self.custom_origins:
             self.root_states[env_ids] = self.base_init_state
             self.root_states[env_ids, :3] += self.env_origins[env_ids]
-            self.root_states[env_ids, :2] += torch_rand_float(-1., 1., (len(env_ids), 2), device=self.device) # xy position within 1m of the center
+            self.root_states[env_ids, :2] += torch_rand_float(-0.5, 0.5, (len(env_ids), 2), device=self.device) # xy position within 1m of the center
         else:
             self.root_states[env_ids] = self.base_init_state
             self.root_states[env_ids, :3] += self.env_origins[env_ids]
+        # base orientation
+        roll_random_scale = self.cfg.init_state.roll_random_scale
+        pitch_random_scale = self.cfg.init_state.pitch_random_scale
+        yaw_random_scale = self.cfg.init_state.yaw_random_scale
+        self.root_states[env_ids, 3:7] = \
+            quat_from_euler_xyz(
+                torch_rand_float(-roll_random_scale, roll_random_scale, (len(env_ids), 1), self.device).view(-1),
+                torch_rand_float(-pitch_random_scale, pitch_random_scale, (len(env_ids), 1), self.device).view(-1),
+                torch_rand_float(-yaw_random_scale, yaw_random_scale, (len(env_ids), 1), self.device).view(-1)
+            )
         # base velocities
         self.root_states[env_ids, 7:13] = torch_rand_float(-0.5, 0.5, (len(env_ids), 6), device=self.device) # [7:10]: lin vel, [10:13]: ang vel
         env_ids_int32 = env_ids.to(dtype=torch.int32)

@@ -25,7 +25,7 @@ def play(args):
     
     # stairs
     env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
-                                      "step_width": 0.31, "step_height": -0.13, "platform_size": 3.0}
+                                      "step_width": 0.31, "step_height": -0.15, "platform_size": 3.0}
     # single stair
     # env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
     #                                   "step_width": 1.0, "step_height": -0.05, "platform_size": 3.0}
@@ -40,7 +40,6 @@ def play(args):
     #                                   "num_rects": 20,
     #                                   "platform_size": 3.0}
     
-    env_cfg.asset.fix_base_link = False
     env_cfg.env.debug = True
     # velocity range
     env_cfg.commands.ranges.lin_vel_x = [1.0, 1.0]
@@ -78,6 +77,7 @@ def play(args):
         # print(f"base height: {env.simulator.base_pos[robot_index,2].item():.3f} m")
         # print(f"measured_heights: {env.simulator.measured_heights[robot_index].cpu().numpy()}")
         # print(f"height_around_feet: {env.simulator.height_around_feet[robot_index].cpu().numpy()}")
+        # print(f"base height above ground: {torch.mean(env.simulator.base_pos[:,2].unsqueeze(1) - env.simulator.measured_heights[:, :], dim=1)[robot_index].item()} m")
         # print("------------")
         
         

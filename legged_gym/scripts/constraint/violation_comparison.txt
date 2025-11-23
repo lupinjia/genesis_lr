@@ -1,0 +1,25 @@
+Constrained Teacher-Student Policy                                                            
+----mean terrain level: 6.41064453125                                                         
+----summed mean constraint violation of 4096 environments across 10 episodes:                                           
+--------torque: 0.0                                                                           
+--------dof_vel: 0.77392578125                                                                
+--------action_rate: 93.277099609375                                                          
+--------base_height: 28.3583984375                                                            
+--------collision: 263.607177734375                                                           
+--------feet_stumble: 149.046142578125                                                        
+--------dof_pos: 12.406982421875                                                              
+--------base_orientation: 7.6650390625                                                        
+--------stand_still: 92.3230294585228
+
+Vanilla Teacher-Student Policy                                                                
+----mean terrain level: 6.376953125                                                           
+----summed mean constraint violation of 4096 environments across 10 episodes:                                           
+--------torque: 0.0                                                                           
+--------dof_vel: 0.3701171875                                                                 
+--------action_rate: 124.7998046875                                                           
+--------base_height: 748.806884765625                                                         
+--------collision: 316.96728515625                                                            
+--------feet_stumble: 176.70068359375                                                         
+--------dof_pos: 6.373291015625                                                               
+--------base_orientation: 3.4794921875                                                        
+--------stand_still: 17.58094495534897

@@ -44,6 +44,7 @@ class Terrain:
             return
         self.env_length = cfg.terrain_length
         self.env_width = cfg.terrain_width
+        self.platform_size = cfg.platform_size
         self.proportions = [np.sum(cfg.terrain_proportions[:i+1]) for i in range(len(cfg.terrain_proportions))]
 
         self.cfg.num_sub_terrains = cfg.num_rows * cfg.num_cols
@@ -124,26 +125,26 @@ class Terrain:
         if choice < self.proportions[0]:
             if choice < self.proportions[0]/ 2:
                 slope *= -1
-            terrain_utils.pyramid_sloped_terrain(terrain, slope=slope, platform_size=3.)
+            terrain_utils.pyramid_sloped_terrain(terrain, slope=slope, platform_size=self.platform_size)
         elif choice < self.proportions[1]:
-            terrain_utils.pyramid_sloped_terrain(terrain, slope=slope, platform_size=3.)
+            terrain_utils.pyramid_sloped_terrain(terrain, slope=slope, platform_size=self.platform_size)
             terrain_utils.random_uniform_terrain(terrain, min_height=-0.05, max_height=0.05, step=0.005, downsampled_scale=0.2)
         elif choice < self.proportions[3]:
             if choice<self.proportions[2]:
                 step_height *= -1
-            terrain_utils.pyramid_stairs_terrain(terrain, step_width=0.4, step_height=step_height, platform_size=3.)
+            terrain_utils.pyramid_stairs_terrain(terrain, step_width=0.4, step_height=step_height, platform_size=self.platform_size)
         elif choice < self.proportions[4]:
             num_rectangles = 20
             rectangle_min_size = 1.
             rectangle_max_size = 2.
-            terrain_utils.discrete_obstacles_terrain(terrain, discrete_obstacles_height, rectangle_min_size, rectangle_max_size, num_rectangles, platform_size=3.)
+            terrain_utils.discrete_obstacles_terrain(terrain, discrete_obstacles_height, rectangle_min_size, rectangle_max_size, num_rectangles, platform_size=self.platform_size)
         elif choice < self.proportions[5]:
-            terrain_utils.stepping_stones_terrain(terrain, stone_size=stepping_stones_size, stone_distance=stone_distance, max_height=0., platform_size=4.)
+            terrain_utils.stepping_stones_terrain(terrain, stone_size=stepping_stones_size, stone_distance=stone_distance, max_height=0., platform_size=self.platform_size)
         elif choice < self.proportions[6]:
-            gap_terrain(terrain, gap_size=gap_size, platform_size=3.)
+            terrain_utils.gap_terrain(terrain, gap_size=gap_size, platform_size=self.platform_size)
         else:
-            pit_terrain(terrain, depth=pit_depth, platform_size=4.)
-        
+            terrain_utils.pit_terrain(terrain, depth=pit_depth, platform_size=self.platform_size)
+
         return terrain
 
     def add_terrain_to_map(self, terrain, row, col):
@@ -166,25 +167,3 @@ class Terrain:
         env_origin_z = np.max(terrain.height_field_raw[x1:x2, y1:y2])*terrain.vertical_scale
         self.env_origins[i, j] = [env_origin_x, env_origin_y, env_origin_z]
 
-def gap_terrain(terrain, gap_size, platform_size=1.):
-    gap_size = int(gap_size / terrain.horizontal_scale)
-    platform_size = int(platform_size / terrain.horizontal_scale)
-
-    center_x = terrain.length // 2
-    center_y = terrain.width // 2
-    x1 = (terrain.length - platform_size) // 2
-    x2 = x1 + gap_size
-    y1 = (terrain.width - platform_size) // 2
-    y2 = y1 + gap_size
-   
-    terrain.height_field_raw[center_x-x2 : center_x + x2, center_y-y2 : center_y + y2] = -1000
-    terrain.height_field_raw[center_x-x1 : center_x + x1, center_y-y1 : center_y + y1] = 0
-
-def pit_terrain(terrain, depth, platform_size=1.):
-    depth = int(depth / terrain.vertical_scale)
-    platform_size = int(platform_size / terrain.horizontal_scale / 2)
-    x1 = terrain.length // 2 - platform_size
-    x2 = terrain.length // 2 + platform_size
-    y1 = terrain.width // 2 - platform_size
-    y2 = terrain.width // 2 + platform_size
-    terrain.height_field_raw[x1:x2, y1:y2] = -depth

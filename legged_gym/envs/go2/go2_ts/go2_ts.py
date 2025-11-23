@@ -10,6 +10,7 @@ from collections import deque
 
 class Go2TS(LeggedRobot):
     def get_observations(self):
+        # actor obs, input of teacher encoder, input of student encoder, critic obs
         return self.obs_buf, self.privileged_obs_buf, self.obs_history, self.critic_obs_buf
 
     def step(self, actions):
@@ -71,6 +72,7 @@ class Go2TS(LeggedRobot):
         critic_obs = torch.cat((
             self.obs_buf,                 # num_observations
             domain_randomization_info,    # 34
+            self.simulator.base_lin_vel * self.obs_scales.lin_vel,     # 3
         ), dim=-1)
         if self.cfg.asset.obtain_link_contact_states:
             critic_obs = torch.cat(
@@ -111,6 +113,7 @@ class Go2TS(LeggedRobot):
                     domain_randomization_info,                       # 34
                     self.simulator.height_around_feet.flatten(1,2),  # 9*number of feet
                     self.simulator.normal_vector_around_feet,        # 3*number of feet
+                    self.simulator.base_lin_vel * self.obs_scales.lin_vel,     # 3
                 ),
                 dim=-1,
             )
@@ -188,14 +191,13 @@ class Go2TS(LeggedRobot):
         self.num_history_obs = self.cfg.env.num_history_obs
         self.num_latent_dims = self.cfg.env.num_latent_dims
         self.num_critic_obs = self.cfg.env.num_critic_obs
-        # determine privileged observation offset to normalize privileged observations
-        self.friction_value_offset = (self.cfg.domain_rand.friction_range[0] + 
-                                      self.cfg.domain_rand.friction_range[1]) / 2  # mean value
-        self.kp_scale_offset = (self.cfg.domain_rand.kp_range[0] +
-                                self.cfg.domain_rand.kp_range[1]) / 2  # mean value
-        self.kd_scale_offset = (self.cfg.domain_rand.kd_range[0] +
-                                self.cfg.domain_rand.kd_range[1]) / 2  # mean value
-
+        # if debug_cstr_violation exists in cfg, use it; otherwise, set to False
+        if hasattr(self.cfg.env, 'debug_cstr_violation'):
+            self.debug_cstr = self.cfg.env.debug_cstr_violation
+            self.cstr_violation = {}
+        else:
+            self.debug_cstr = False
+        
     def post_physics_step(self):
         """ check terminations, compute observations and rewards
             calls self._post_physics_step_callback() for common computations 
@@ -209,6 +211,8 @@ class Go2TS(LeggedRobot):
 
         # compute observations, rewards, resets, ...
         self.check_termination()
+        if self.debug_cstr:
+            self._log_constraint_violations()
         self.compute_reward()
         
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
@@ -221,6 +225,66 @@ class Go2TS(LeggedRobot):
         
         if self.debug:
             self.simulator.draw_debug_vis()
+    
+    def _log_constraint_violations(self):
+        """Compute various constraints for constraints as terminations. Constraints violations are asssessed then
+        handed out to a constraint manager (ConstraintManager class) that will compute termination probabilities."""
+        if not self.init_done:
+            return
+        # ------------ Soft constraints ----------------
+        
+        # Torque constraint
+        cstr_torque = torch.any(torch.abs(self.simulator.torques) > self.simulator.torque_limits, dim=-1)
+        
+        # Joint velocity constraint
+        cstr_dof_vel = torch.any(torch.abs(self.simulator.dof_vel) > self.simulator.dof_vel_limits, dim=-1)
+        
+        # Action rate constraint (for command smoothness)
+        cstr_action_rate = torch.any(torch.abs(self.actions - self.last_actions) / self.dt > 
+                                     self.cfg.constraints.limits.action_rate, dim=-1)
+        
+        # Base height constraint (too low)
+        cstr_base_height = torch.mean(self.simulator.base_pos[:, 2].unsqueeze(
+            1) - self.simulator.measured_heights, dim=1) < self.cfg.constraints.limits.min_base_height
+
+        # ------------ Hard constraints ----------------
+        
+        # Collision constraint
+        cstr_collision = torch.any(torch.norm(
+            self.simulator.link_contact_forces[:, self.simulator.penalized_contact_indices, :], 
+            dim=-1) > 10.0, dim=1)
+        
+        # Feet stumble constraint
+        cstr_feet_stumble = torch.any(torch.norm(self.simulator.link_contact_forces[:, self.simulator.feet_indices, :], dim=-1) > \
+            4 * torch.abs(self.simulator.link_contact_forces[:, self.simulator.feet_indices, 2]), dim=1)
+
+        # Joint position limit constraint
+        cstr_dof_pos = torch.any(self.simulator.dof_pos < self.simulator.dof_pos_limits[:, 0], dim=-1) * \
+            torch.any(self.simulator.dof_pos > self.simulator.dof_pos_limits[:, 1], dim=-1)
+        
+        # Base orientation constraint
+        cstr_base_orientation = self.simulator.projected_gravity[:, 2] > self.cfg.constraints.limits.max_projected_gravity
+        
+        # ------------ Style constraints ----------------
+        
+        # Standing still constraint, penalize motion when command is zero
+        cstr_stand_still = torch.any(torch.abs(self.simulator.dof_vel) > 4.0, dim=-1) * \
+            (torch.norm(self.commands[:, :3], dim=1) < 0.1).float().unsqueeze(1)
+        
+        # ------------ Log constraint violation ----------------
+        if self.debug_cstr:
+            cstr_names = ["torque", "dof_vel", "action_rate", "base_height",
+                            "collision", "feet_stumble", "dof_pos", "base_orientation",
+                            "stand_still"]
+            cstr_violations = [cstr_torque, cstr_dof_vel, cstr_action_rate, cstr_base_height,
+                                cstr_collision, cstr_feet_stumble, cstr_dof_pos, cstr_base_orientation,
+                                cstr_stand_still]
+            for i in range(len(cstr_names)):
+                name = cstr_names[i]
+                if name not in self.cstr_violation:
+                    self.cstr_violation[name] = 0
+                violation = cstr_violations[i]
+                self.cstr_violation[name] += torch.mean(violation.float()).item()
     
     def _post_physics_step_callback(self):
         """ Callback called before computing terminations, rewards, and observations
