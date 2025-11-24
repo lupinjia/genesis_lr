@@ -115,18 +115,19 @@ class Go2DreamWaQ(LeggedRobot):
             (self.simulator.dof_pos - self.simulator.default_dof_pos) *
             self.obs_scales.dof_pos,  # num_dofs
             self.simulator.dof_vel * self.obs_scales.dof_vel,                         # num_dofs
-            self.actions,
+            # self.actions,
+            self.actions * self.cfg.control.action_scale,
         ), dim=-1)
         
         # explicit info labels
         self.explicit_labels_buf = torch.cat((
-            self.simulator.base_lin_vel * self.obs_scales.lin_vel,  # 3
-            1.0 * (torch.norm(
-                self.simulator.link_contact_forces[:, self.simulator.feet_indices, :], dim=-1) 
-                   > 1.0),  # 4
-            (self.simulator.feet_pos[:, :, 2] -
-            torch.mean(self.simulator.height_around_feet, dim=-1) -
-            self.cfg.rewards.foot_height_offset),  # 4
+            self.simulator.base_lin_vel * self.obs_scales.lin_vel * 0.5,  # 3
+            # 1.0 * (torch.norm(
+            #     self.simulator.link_contact_forces[:, self.simulator.feet_indices, :], dim=-1) 
+            #        > 1.0),  # 4
+            # (self.simulator.feet_pos[:, :, 2] -
+            # torch.mean(self.simulator.height_around_feet, dim=-1) -
+            # self.cfg.rewards.foot_height_offset),  # 4
         ), dim=-1)
 
     def _init_buffers(self):

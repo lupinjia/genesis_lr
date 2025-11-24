@@ -40,13 +40,13 @@ class VAE(nn.Module):
         self.latent_mu = nn.Linear(num_latent_dims * 2 + num_explicit_dims * 2, num_latent_dims)
         self.latent_var = nn.Sequential(
             nn.Linear(num_latent_dims * 2 + num_explicit_dims * 2, num_latent_dims),
-            nn.Hardtanh(min_val=-2., max_val=2.) # to avoid numerical issues
+            nn.Hardtanh(min_val=-5., max_val=5.) # to avoid numerical issues
             )
 
         self.vel_mu = nn.Linear(num_latent_dims * 2 + num_explicit_dims * 2, num_explicit_dims)
         self.vel_var = nn.Sequential(
             nn.Linear(num_latent_dims * 2 + num_explicit_dims * 2, num_explicit_dims),
-            nn.Hardtanh(min_val=-2., max_val=2.) # to avoid numerical issues
+            nn.Hardtanh(min_val=-5., max_val=5.) # to avoid numerical issues
             )
 
         # MLP Decoder

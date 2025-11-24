@@ -3,7 +3,7 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 class Go2TSCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
-        num_envs = 4096
+        num_envs = 3000
         num_observations = 45  # num_obs
         num_privileged_obs = 97
         frame_stack = 20    # number of frames to stack for obs_history
@@ -61,8 +61,8 @@ class Go2TSCfg( LeggedRobotCfg ):
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
         # control_type = 'P'
-        stiffness = {'joint': 30.}   # [N*m/rad]
-        damping = {'joint': 0.75}     # [N*m*s/rad]
+        stiffness = {'joint': 20.}   # [N*m/rad]
+        damping = {'joint': 0.5}     # [N*m*s/rad]
         action_scale = 0.25 # action scale: target angle = actionScale * action + defaultAngle
         dt =  0.02  # control frequency 50Hz
         decimation = 4 # decimation: Number of control action updates @ sim DT per policy DT
@@ -95,6 +95,7 @@ class Go2TSCfg( LeggedRobotCfg ):
         flip_visual_attachments = False
   
     class rewards( LeggedRobotCfg.rewards ):
+        base_height_target = 1.
         soft_dof_pos_limit = 0.9
         base_height_target = 0.4
         foot_clearance_target = 0.09 # desired foot clearance above ground [m]
@@ -175,6 +176,6 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
         run_name = 'ts_with_lin_vel'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Oct31_17-42-50_gs_ts_blind"
+        load_run = "Nov23_20-34-48_ts_gym"
         checkpoint = -1
-        max_iterations = 2500
+        max_iterations = 4000

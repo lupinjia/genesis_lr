@@ -2,13 +2,13 @@ from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobot
 
 class Go2DreamWaQCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
-        num_envs = 4096
+        num_envs = 3000
         num_actions = 12
         num_observations = 45  # num_obs
-        frame_stack = 10    # number of frames to stack for obs_history
+        frame_stack = 20    # number of frames to stack for obs_history
         num_history_obs = int(num_observations * frame_stack)
-        num_latent_dims = 20
-        num_explicit_dims = 11  # base linear velocity
+        num_latent_dims = 16
+        num_explicit_dims = 3  # base linear velocity
         num_decoder_output = num_observations
         c_frame_stack = 5
         single_critic_obs_len = num_observations + 34 + 81 + 12 + 3
@@ -20,8 +20,8 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
         env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        mesh_type = "heightfield" # for genesis
-        # mesh_type = "trimesh"  # for isaacgym
+        # mesh_type = "heightfield" # for genesis
+        mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
         border_size = 10.0 # [m]
         curriculum = True
@@ -95,7 +95,7 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.34
+        base_height_target = 0.4
         foot_clearance_target = 0.09 # desired foot clearance above ground [m]
         foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
@@ -110,11 +110,11 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
             # smooth
             lin_vel_z = -2.0
             ang_vel_xy = -0.05
-            dof_vel = -2.e-5
+            base_height = -1.0
+            dof_power = -2.e-4
             dof_acc = -2.e-7
             action_rate = -0.01
             action_smoothness = -0.01
-            torques = -2.e-4
             # gait
             feet_air_time = 1.0
             foot_clearance = 0.2
@@ -158,18 +158,18 @@ class Go2DreamWaQCfgPPO( LeggedRobotCfgPPO ):
     class policy( LeggedRobotCfgPPO.policy ):
         critic_hidden_dims = [1024, 256, 128]
         actor_hidden_dims = [256, 256, 128]
-        encoder_hidden_dims = [512, 256]
-        decoder_hidden_dims = [512, 256]
+        encoder_hidden_dims = [256, 128]
+        decoder_hidden_dims = [256, 128]
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         encoder_lr = 1e-3
         num_encoder_epochs = 1
-        vae_kld_weight = 2.0
+        vae_kld_weight = 0.5
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticDreamWaQ"
         algorithm_class_name = "PPO_DreamWaQ"
         run_name = 'gs_dreamwaq'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Oct10_16-33-50_gs_ts_TCN"
+        load_run = "Nov24_13-54-22_gs_dreamwaq"
         checkpoint = -1
-        max_iterations = 2500
+        max_iterations = 4000
