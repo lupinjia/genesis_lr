@@ -147,7 +147,7 @@ class LeggedRobotCfg(BaseConfig):
             collision = 0 # -1.
             feet_stumble = -0.0 
             action_rate = 0 # -0.01
-            stand_still = -0.
+            dof_pos_stand_still = -0.
         
         only_positive_rewards = True
         tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)

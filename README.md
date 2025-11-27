@@ -24,7 +24,7 @@ A [legged_gym](https://github.com/leggedrobotics/legged_gym) based framework for
 
 - **Incorporation of various methods in published RL papers**
   
-  | Method | Paper Link | Location |
+  | Method | Paper Link | Code |
   |--------|------------|----------|
   | Periodic Gait Reward | [Sim-to-Real Learning of All Common Bipedal Gaits via Periodic Reward Composition](https://arxiv.org/abs/2011.01387) | [go2_wtw](https://github.com/lupinjia/genesis_lr/blob/main/legged_gym/envs/go2/go2_wtw/go2_wtw.py#L322) |
   | Walk These Ways | [Walk These Ways: Tuning Robot Control for Generalization with Multiplicity of Behavior](https://gmargo11.github.io/walk-these-ways/) | [go2_wtw](https://github.com/lupinjia/genesis_lr/blob/main/legged_gym/envs/go2/go2_wtw) |
@@ -32,6 +32,7 @@ A [legged_gym](https://github.com/leggedrobotics/legged_gym) based framework for
   | Teacher-Student | [Rapid Locomotion via Reinforcement Learning](https://agility.csail.mit.edu/) | [go2_ts](https://github.com/lupinjia/genesis_lr/tree/main/legged_gym/envs/go2/go2_ts) |
   | EstimatorNet | [Concurrent Training of a Control Policy and a State Estimator for Dynamic and Robust Legged Locomotion](https://arxiv.org/abs/2202.05481) | [go2_ee](https://github.com/lupinjia/genesis_lr/tree/main/legged_gym/envs/go2/go2_ee) |
   | Constraints as Terminations | [CaT: Constraints as Terminations for Legged Locomotion Reinforcement Learning](https://constraints-as-terminations.github.io/) | [go2_cat](https://github.com/lupinjia/genesis_lr/tree/main/legged_gym/envs/go2/go2_cat) |
+  | DreamWaQ | [DreamWaQ: Learning Robust Quadrupedal Locomotion With Implicit Terrain Imagination via Deep Reinforcement Learning](https://arxiv.org/abs/2301.10602) | [go2_dreamwaq](https://github.com/lupinjia/genesis_lr/tree/main/legged_gym/envs/go2/go2_dreamwaq) |
 
 ## 🛠 Installation and Usage
 
@@ -67,5 +68,7 @@ Please refer to the [doc of this repo](https://genesis-lr-doc.readthedocs.io/en/
 - [x] Add teacher-student implementation (2025/08/02)
 - [x] Add Constraints as Terminations implementation (2025/10/23)
 - [x] Add support for TRON1_PF (flat and rough)
+- [x] Add DreamWaQ implementation (2025/11/27)
 - [ ] Add support for TRON1_SF (flat and rough)
 - [ ] Add support for TRON1_WF (flat and rough)
+- [ ] Add support for warp-based depth camera

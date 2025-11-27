@@ -111,7 +111,7 @@ class Go2TS(LeggedRobot):
             self.privileged_obs_buf = torch.cat(
                 (
                     domain_randomization_info,                       # 34
-                    self.simulator.height_around_feet.flatten(1,2),  # 9*number of feet
+                    (self.simulator.feet_pos[:, :, 2].unsqueeze(-1) - self.simulator.height_around_feet).flatten(1,2).clip(-1.0, 1.0),  # 9*number of feet
                     self.simulator.normal_vector_around_feet,        # 3*number of feet
                     self.simulator.base_lin_vel * self.obs_scales.lin_vel,     # 3
                 ),

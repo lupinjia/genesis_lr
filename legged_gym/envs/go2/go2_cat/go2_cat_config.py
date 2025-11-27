@@ -15,7 +15,7 @@ class Go2CaTCfg( Go2TSCfg ):
             # unused rewards
             dof_pos_limits = 0.0
             collision = 0.0
-            stand_still = 0.0
+            dof_pos_stand_still = 0.0
             # smooth
             lin_vel_z = -1.0
             orientation = -0.5

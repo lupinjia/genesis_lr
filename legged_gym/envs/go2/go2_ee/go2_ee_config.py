@@ -112,7 +112,7 @@ class Go2EECfg( LeggedRobotCfg ):
             # gait
             feet_air_time = 1.0
             foot_clearance = 0.2
-            stand_still = -0.5
+            dof_vel_stand_still = -0.5
 
     class commands( LeggedRobotCfg.commands ):
         curriculum = True

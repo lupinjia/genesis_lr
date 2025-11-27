@@ -118,7 +118,7 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
             # gait
             feet_air_time = 1.0
             foot_clearance = 0.2
-            stand_still = -0.5       # stand_still reward 没问题
+            dof_vel_stand_still = -0.5       # stand_still reward 没问题
 
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
