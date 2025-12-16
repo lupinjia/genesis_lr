@@ -175,8 +175,8 @@ class GO2WTWCfgPPO(LeggedRobotCfgPPO):
         entropy_coef = 0.01
 
     class runner(LeggedRobotCfgPPO.runner):
-        run_name = 'step_gait'
-        experiment_name = 'go2_wtw'
+        run_name = 'wtw_gym'
+        experiment_name = 'go2'
         save_interval = 500
         load_run = "Sep19_11-01-20_step_gait"
         checkpoint = -1

@@ -1,22 +1,25 @@
+from legged_gym import *
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 class Go2EECfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
         num_single_obs = 45
-        frame_stack = 5    # number of frames to stack for obs_history
+        frame_stack = 10    # number of frames to stack for obs_history
         num_estimator_features = int(num_single_obs * frame_stack)
-        num_estimator_labels = 11
+        num_estimator_labels = 24
         c_frame_stack = 5
-        single_critic_obs_len = num_single_obs + 34 + 81 + 12
+        single_critic_obs_len = num_single_obs + 34 + 81 + 17
         num_privileged_obs = c_frame_stack * single_critic_obs_len
         # privileged_obs here is actually critic_obs
         num_actions = 12
         env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        mesh_type = "heightfield" # for genesis
-        # mesh_type = "trimesh"  # for isaacgym
+        if SIMULATOR == "genesis":
+            mesh_type = "heightfield" # for genesis
+        else:
+            mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
         border_size = 10.0 # [m]
         curriculum = True
@@ -65,9 +68,9 @@ class Go2EECfg( LeggedRobotCfg ):
         name = "go2"
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
         obtain_link_contact_states = True
-        contact_state_link_names = ["thigh", "calf", "foot"]
+        contact_state_link_names = ["thigh", "calf", "foot", "base", "hip"]
         foot_name = "foot"
-        penalize_contacts_on = ["thigh", "calf", "base", "Head"]
+        penalize_contacts_on = ["thigh", "calf", "base", "Head", "hip"]
         terminate_after_contacts_on = []
         # Genesis: 
         dof_names = [        # specify the sequence of actions
@@ -96,7 +99,7 @@ class Go2EECfg( LeggedRobotCfg ):
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
-            dof_pos_limits = -2.0
+            dof_pos_limits = -5.0
             collision = -1.0
             # command tracking
             tracking_lin_vel = 1.0
@@ -104,15 +107,16 @@ class Go2EECfg( LeggedRobotCfg ):
             # smooth
             lin_vel_z = -2.0
             ang_vel_xy = -0.05
-            dof_vel = -2.e-5
+            dof_power = -2.e-4
             dof_acc = -2.e-7
             action_rate = -0.01
             action_smoothness = -0.01
-            torques = -2.e-4
             # gait
             feet_air_time = 1.0
             foot_clearance = 0.2
-            dof_vel_stand_still = -0.5
+            hip_pos = -0.1
+            dof_pos_stand_still = -1.0
+            feet_contact_stand_still = 0.5
 
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
@@ -132,7 +136,7 @@ class Go2EECfg( LeggedRobotCfg ):
         randomize_base_mass = True
         added_mass_range = [-1., 1.]
         push_robots = True
-        push_interval_s = 15
+        push_interval_s = 10
         max_push_vel_xy = 1.
         randomize_com_displacement = True
         com_displacement_range = [-0.03, 0.03]
@@ -154,14 +158,14 @@ class Go2EECfgPPO( LeggedRobotCfgPPO ):
         critic_hidden_dims = [1024, 256, 128]
         estimator_hidden_dims = [256, 128]
     class algorithm( LeggedRobotCfgPPO.algorithm ):
-        estimator_lr = 1e-3
+        estimator_lr = 2.e-4
         num_estimator_epochs = 1
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticEE"
         algorithm_class_name = "PPO_EE"
-        run_name = 'gs'
+        run_name = 'gym_ee'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Sep29_10-38-04_gs"
+        load_run = "Dec15_14-57-47_gym_ee"
         checkpoint = -1
-        max_iterations = 2500
+        max_iterations = 3000

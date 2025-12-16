@@ -43,8 +43,12 @@ class PPO_EE:
         self.actor_critic = actor_critic
         self.actor_critic.to(self.device)
         self.storage = None  # initialized later
+        # Only include parameters of actor, critic and std
+        self.rl_parameters = list(self.actor_critic.actor.parameters()) + \
+                             list(self.actor_critic.critic.parameters()) + \
+                            [self.actor_critic.std]
         self.optimizer = optim.Adam(
-            self.actor_critic.parameters(), lr=learning_rate)
+            self.rl_parameters, lr=learning_rate)
         self.estimator_optimizer = optim.Adam(
             self.actor_critic.estimator.parameters(), lr=estimator_lr)
         self.transition = RolloutStorageEE.Transition()
@@ -175,9 +179,21 @@ class PPO_EE:
             self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(
-                self.actor_critic.parameters(), self.max_grad_norm)
+                self.rl_parameters, self.max_grad_norm)
             self.optimizer.step()
             
+            mean_value_loss += value_loss.item()
+            mean_surrogate_loss += surrogate_loss.item()
+        
+        if self.actor_critic.is_recurrent:
+            generator = self.storage.reccurent_mini_batch_generator(
+                self.num_mini_batches, self.num_learning_epochs)
+        else:
+            generator = self.storage.mini_batch_generator(
+                self.num_mini_batches, self.num_learning_epochs)
+        for critic_obs_batch, estimator_features_batch, estimator_labels_batch, \
+            actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, \
+                old_mu_batch, old_sigma_batch, hid_states_batch, masks_batch in generator:
             # estimator gradient step
             for _ in range(self.num_estimator_epochs):
                 estimator_predictions = self.actor_critic.estimator(estimator_features_batch)
@@ -185,11 +201,10 @@ class PPO_EE:
                     estimator_predictions, estimator_labels_batch)
                 self.estimator_optimizer.zero_grad()
                 estimator_loss.backward()
+                nn.utils.clip_grad_norm_(
+                    self.actor_critic.estimator.parameters(), self.max_grad_norm)
                 self.estimator_optimizer.step()
-
-            mean_value_loss += value_loss.item()
-            mean_surrogate_loss += surrogate_loss.item()
-            mean_estimator_loss += estimator_loss.item()
+                mean_estimator_loss += estimator_loss.item()
 
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates

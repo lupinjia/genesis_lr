@@ -1,3 +1,4 @@
+from legged_gym import *
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 class Go2DreamWaQCfg( LeggedRobotCfg ):
@@ -8,10 +9,10 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
         frame_stack = 20    # number of frames to stack for obs_history
         num_history_obs = int(num_observations * frame_stack)
         num_latent_dims = 16
-        num_explicit_dims = 3  # base linear velocity
+        num_explicit_dims = 24  # base linear velocity
         num_decoder_output = num_observations
         c_frame_stack = 5
-        single_critic_obs_len = num_observations + 34 + 81 + 12 + 3
+        single_critic_obs_len = num_observations + 34 + 81 + 17 + 3
         num_privileged_obs = c_frame_stack * single_critic_obs_len
         # Privileged_obs and critic_obs are seperated here
         # privileged_obs contains information given to privileged encoder
@@ -20,8 +21,10 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
         env_spacing = 0.5
     
     class terrain( LeggedRobotCfg.terrain ):
-        # mesh_type = "heightfield" # for genesis
-        mesh_type = "trimesh"  # for isaacgym
+        if SIMULATOR == "genesis":
+            mesh_type = "heightfield" # for genesis
+        else:
+            mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
         border_size = 10.0 # [m]
         curriculum = True
@@ -35,8 +38,10 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
         num_rows = 10  # number of terrain rows (levels)
         num_cols = 10  # number of terrain cols (types)
         max_init_terrain_level = 0  # terrain curriculum, initial difficulty
-        # terrain types: [smooth slope, rough slope, stairs up, stairs down, discrete]
-        terrain_proportions = [0.2, 0.1, 0.25, 0.25, 0.2]
+        # terrain types: [smooth slope, rough slope, stairs up, stairs down, discrete
+        #                 stepping stones, gap, pit]
+        terrain_proportions = [0.2, 0.1, 0.25, 0.25, 0.2, 
+                               0.0, 0.0, 0.0]
         
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]
@@ -71,9 +76,9 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
         name = "go2"
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
         obtain_link_contact_states = True
-        contact_state_link_names = ["thigh", "calf", "foot"]
+        contact_state_link_names = ["thigh", "calf", "foot", "base", "hip"]
         foot_name = "foot"
-        penalize_contacts_on = ["thigh", "calf", "base", "Head"]
+        penalize_contacts_on = ["thigh", "calf", "base", "Head", "hip"]
         terminate_after_contacts_on = []
         # Genesis: 
         dof_names = [        # specify the sequence of actions
@@ -96,13 +101,13 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
         base_height_target = 0.4
-        foot_clearance_target = 0.09 # desired foot clearance above ground [m]
+        foot_clearance_target = 0.06 # desired foot clearance above ground [m]
         foot_height_offset = 0.022   # height of the foot coordinate origin above ground [m]
         foot_clearance_tracking_sigma = 0.01
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
-            dof_pos_limits = -2.0
+            dof_pos_limits = -5.0
             collision = -1.0
             # command tracking
             tracking_lin_vel = 1.0
@@ -110,7 +115,6 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
             # smooth
             lin_vel_z = -2.0
             ang_vel_xy = -0.05
-            base_height = -1.0
             dof_power = -2.e-4
             dof_acc = -2.e-7
             action_rate = -0.01
@@ -118,7 +122,9 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
             # gait
             feet_air_time = 1.0
             foot_clearance = 0.2
-            dof_vel_stand_still = -0.5       # stand_still reward 没问题
+            hip_pos = -0.1
+            dof_pos_stand_still = -1.0
+            feet_contact_stand_still = 0.5
 
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
@@ -138,7 +144,7 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
         randomize_base_mass = True
         added_mass_range = [-1., 1.]
         push_robots = True
-        push_interval_s = 15
+        push_interval_s = 10
         max_push_vel_xy = 1.
         randomize_com_displacement = True
         com_displacement_range = [-0.03, 0.03]
@@ -157,19 +163,19 @@ class Go2DreamWaQCfgPPO( LeggedRobotCfgPPO ):
     runner_class_name = "DreamWaQRunner" # DreamWaQ Runner
     class policy( LeggedRobotCfgPPO.policy ):
         critic_hidden_dims = [1024, 256, 128]
-        actor_hidden_dims = [256, 256, 128]
+        actor_hidden_dims = [512, 256, 128]
         encoder_hidden_dims = [256, 128]
         decoder_hidden_dims = [256, 128]
     class algorithm( LeggedRobotCfgPPO.algorithm ):
-        encoder_lr = 1e-3
+        encoder_lr = 2.e-4
         num_encoder_epochs = 1
-        vae_kld_weight = 0.5
+        vae_kld_weight = 2.0
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticDreamWaQ"
         algorithm_class_name = "PPO_DreamWaQ"
-        run_name = 'gs_dreamwaq'
+        run_name = 'gym_dreamwaq'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Nov24_13-54-22_gs_dreamwaq"
+        load_run = "Dec16_09-19-17_gym_dreamwaq"
         checkpoint = -1
-        max_iterations = 4000
+        max_iterations = 3000

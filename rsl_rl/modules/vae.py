@@ -95,7 +95,7 @@ class VAE(nn.Module):
         sampled_out, distribution_params = self.forward(obs_history)
         return sampled_out, distribution_params
 
-    def inference(self,obs_history):
+    def inference(self, obs_history):
         _, distribution_params = self.forward(obs_history)
         latent_mu, latent_var, vel_mu, vel_var = distribution_params
         return torch.cat((latent_mu, vel_mu), dim=-1)

@@ -132,36 +132,74 @@ def get_args():
 
     return parser.parse_args()
 
-def export_policy_as_jit(actor_critic, path, prefix=None, export_type=None):
+def export_policy_as_jit(actor_critic, path, prefix=None):
     if hasattr(actor_critic, 'memory_a'):
         # assumes LSTM: TODO add GRU
         exporter = PolicyExporterLSTM(actor_critic)
         exporter.export(path)
     else: 
         os.makedirs(path, exist_ok=True)
-        if export_type == "ts":
-            model_path = os.path.join(path, prefix + "_policy.pt")
-            model = copy.deepcopy(actor_critic.actor).to('cpu')
-            traced_script_module = torch.jit.script(model)
-            traced_script_module.save(model_path)
-            encoder_path = os.path.join(path, prefix + "_encoder.pt")
-            model = copy.deepcopy(actor_critic.history_encoder).to('cpu')
-            traced_script_module = torch.jit.script(model)
-            traced_script_module.save(encoder_path)
-        elif export_type == "ee":
-            model_path = os.path.join(path, prefix + "_policy.pt")
-            model = copy.deepcopy(actor_critic.actor).to('cpu')
-            traced_script_module = torch.jit.script(model)
-            traced_script_module.save(model_path)
-            estimator_path = os.path.join(path, prefix + "_estimator.pt")
-            model = copy.deepcopy(actor_critic.estimator).to('cpu')
-            traced_script_module = torch.jit.script(model)
-            traced_script_module.save(estimator_path)
-        else:
-            path = os.path.join(path, prefix + '.pt')
-            model = copy.deepcopy(actor_critic.actor).to('cpu')
-            traced_script_module = torch.jit.script(model)
-            traced_script_module.save(path)
+        path = os.path.join(path, prefix + '.pt')
+        model = copy.deepcopy(actor_critic.actor).to('cpu')
+        traced_script_module = torch.jit.script(model)
+        traced_script_module.save(path)
+
+class PolicyExporterTS(torch.nn.Module):
+    def __init__(self, actor_critic):
+        super().__init__()
+        self.actor = copy.deepcopy(actor_critic.actor)
+        self.encoder = copy.deepcopy(actor_critic.history_encoder)
+    
+    def forward(self, obs, history):
+        latent = self.encoder(history)
+        x = torch.cat([obs, latent], dim=-1)
+        return self.actor(x)
+ 
+    def export(self, path, prefix=None):
+        os.makedirs(path, exist_ok=True)
+        filename = prefix + "_policy.pt" if prefix != None else "ts_policy.pt"
+        path = os.path.join(path, filename)
+        self.to('cpu')
+        traced_script_module = torch.jit.script(self)
+        traced_script_module.save(path)
+
+class PolicyExporterEE(torch.nn.Module):
+    def __init__(self, actor_critic):
+        super().__init__()
+        self.actor = copy.deepcopy(actor_critic.actor)
+        self.estimator = copy.deepcopy(actor_critic.estimator)
+    
+    def forward(self, obs_history):
+        estimated_state = self.estimator(obs_history)
+        x = torch.cat([obs_history, estimated_state], dim=-1)
+        return self.actor(x)
+ 
+    def export(self, path, prefix=None):
+        os.makedirs(path, exist_ok=True)
+        filename = prefix + "_policy.pt" if prefix != None else "ee_policy.pt"
+        path = os.path.join(path, filename)
+        self.to('cpu')
+        traced_script_module = torch.jit.script(self)
+        traced_script_module.save(path)
+
+class PolicyExporterWaQ(torch.nn.Module):
+    def __init__(self, actor_critic):
+        super().__init__()
+        self.actor = copy.deepcopy(actor_critic.actor)
+        self.vae = copy.deepcopy(actor_critic.vae)
+    
+    def forward(self, obs, obs_history):
+        vae_out = self.vae.inference(obs_history)
+        x = torch.cat([obs, vae_out], dim=-1)
+        return self.actor(x)
+ 
+    def export(self, path, prefix=None):
+        os.makedirs(path, exist_ok=True)
+        filename = prefix + "_policy.pt" if prefix != None else "waq_policy.pt"
+        path = os.path.join(path, filename)
+        self.to('cpu')
+        traced_script_module = torch.jit.script(self)
+        traced_script_module.save(path)
 
 class PolicyExporterLSTM(torch.nn.Module):
     def __init__(self, actor_critic):

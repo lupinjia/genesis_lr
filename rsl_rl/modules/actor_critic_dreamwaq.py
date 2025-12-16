@@ -152,10 +152,6 @@ class ActorCriticDreamWaQ(nn.Module):
             (
             observations, sampled_out
             ), dim=-1))
-        # # Check if NaN exists in mean
-        # if torch.isnan(mean).any():
-        #     print("NaN detected in action mean")
-        #     import ipdb; ipdb.set_trace()
             
         self.distribution = Normal(mean, mean*0. + self.std)
 

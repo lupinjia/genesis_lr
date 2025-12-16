@@ -105,12 +105,10 @@ class Go2EE(LeggedRobot):
         # Estimator labels
         self.estimator_labels_buf = torch.cat((
             self.simulator.base_lin_vel * self.obs_scales.lin_vel,         # 3
-            1.0 * (torch.norm(
-                self.simulator.link_contact_forces[:, self.simulator.feet_indices, :], dim=-1) 
-                   > 1.0),  # 4
-            (self.simulator.feet_pos[:, :, 2] -
+            self.simulator.link_contact_states, # contact states of hips, thighs, calfs, feet and base (4+4+4+4+1)=17
+            torch.clip(self.simulator.feet_pos[:, :, 2] -
             torch.mean(self.simulator.height_around_feet, dim=-1) -
-            self.cfg.rewards.foot_height_offset),  # 4
+            self.cfg.rewards.foot_height_offset, -1, 1.),  # 4
         ), dim=-1)
 
     def _init_buffers(self):
@@ -288,4 +286,13 @@ class Go2EE(LeggedRobot):
         dof_pos_error = torch.sum(torch.square(
             self.simulator.dof_pos[:, hip_joint_indices] - 
             self.simulator.default_dof_pos[:, hip_joint_indices]), dim=-1)
+        return dof_pos_error
+    
+    def _reward_thigh_pos(self):
+        """ Reward for the thigh joint position close to default position
+        """
+        thigh_joint_indices = [1, 4, 7, 10]
+        dof_pos_error = torch.sum(torch.square(
+            self.simulator.dof_pos[:, thigh_joint_indices] - 
+            self.simulator.default_dof_pos[:, thigh_joint_indices]), dim=-1)
         return dof_pos_error

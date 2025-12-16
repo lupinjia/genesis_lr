@@ -541,6 +541,12 @@ class LeggedRobot(BaseTask):
         # Penalize position deviation at zero commands
         return torch.sum(torch.square(self.simulator.dof_pos - self.simulator.default_dof_pos), dim=1) * (torch.norm(self.commands[:, :3], dim=1) < 0.1)
     
+    def _reward_feet_contact_stand_still(self):
+        # Encourage feet contact with the ground at zero commands
+        contacts = self.simulator.link_contact_forces[:, self.simulator.feet_indices, 2] > 0.1
+        full_contact = torch.sum(1.*contacts, dim=1)==len(self.simulator.feet_indices)
+        return 1.0*full_contact * (torch.norm(self.commands[:, :3], dim=1) < 0.1)
+    
     def _reward_dof_close_to_default(self):
         # Penalize dof position deviation from default
         return torch.sum(torch.square(self.simulator.dof_pos - self.simulator.default_dof_pos), dim=1)

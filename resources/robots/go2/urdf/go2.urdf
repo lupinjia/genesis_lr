@@ -36,9 +36,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0 0 0" />
+      <origin rpy="0 0 0" xyz="0 0 -0.02" />
       <geometry>
-        <box size="0.3762 0.0935 0.114" />
+        <box size="0.26 0.18 0.15" />
       </geometry>
     </collision>
   </link>
@@ -69,7 +69,7 @@ Stephen Brawner (brawner@gmail.com)
   </link>
   <joint
     name="Head_upper_joint"
-    type="fixed">
+    type="fixed" dont_collapse="true">
     <origin
       xyz="0.285 0 0.01"
       rpy="0 0 0" />
@@ -149,9 +149,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="1.5707963267948966 0 0" xyz="0 0.08 0" />
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0.04 0" />
       <geometry>
-        <cylinder length="0.04" radius="0.046" />
+        <cylinder length="0.12" radius="0.04" />
       </geometry>
     </collision>
   </link>
@@ -204,9 +204,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="0 1.5707963267948966 0" xyz="0 0 -0.1065" />
+      <origin rpy="0 1.5707963267948966 0" xyz="-0.015 0 -0.13" />
       <geometry>
-        <box size="0.11 0.0245 0.034" />
+        <box size="0.2 0.0245 0.034" />
       </geometry>
     </collision>
   </link>
@@ -259,9 +259,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="0 -0.21 0" xyz="0.008 0 -0.06" />
+      <origin rpy="0 -0.21 0" xyz="0.01 0 -0.06" />
       <geometry>
-        <cylinder length="0.12" radius="0.012" />
+        <cylinder length="0.12" radius="0.013" />
       </geometry>
     </collision>
   </link>
@@ -408,9 +408,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="1.5707963267948966 0 0" xyz="0 -0.08 0" />
+      <origin rpy="1.5707963267948966 0 0" xyz="0 -0.04 0" />
       <geometry>
-        <cylinder length="0.04" radius="0.046" />
+        <cylinder length="0.12" radius="0.04" />
       </geometry>
     </collision>
   </link>
@@ -463,9 +463,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="0 1.5707963267948966 0" xyz="0 0 -0.1065" />
+      <origin rpy="0 1.5707963267948966 0" xyz="-0.015 0 -0.13" />
       <geometry>
-        <box size="0.11 0.0245 0.034" />
+        <box size="0.2 0.0245 0.034" />
       </geometry>
     </collision>
   </link>
@@ -667,9 +667,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="1.5707963267948966 0 0" xyz="0 0.08 0" />
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0.04 0" />
       <geometry>
-        <cylinder length="0.04" radius="0.046" />
+        <cylinder length="0.12" radius="0.046" /> <!-- only front hips need bigger radius -->
       </geometry>
     </collision>
   </link>
@@ -722,9 +722,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="0 1.5707963267948966 0" xyz="0 0 -0.1065" />
+      <origin rpy="0 1.5707963267948966 0" xyz="-0.015 0 -0.13" />
       <geometry>
-        <box size="0.11 0.0245 0.034" />
+        <box size="0.2 0.0245 0.034" />
       </geometry>
     </collision>
   </link>
@@ -926,9 +926,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="1.5707963267948966 0 0" xyz="0 -0.08 0" />
+      <origin rpy="1.5707963267948966 0 0" xyz="0 -0.04 0" />
       <geometry>
-        <cylinder length="0.04" radius="0.046" />
+        <cylinder length="0.12" radius="0.046" />
       </geometry>
     </collision>
   </link>
@@ -981,9 +981,9 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
-      <origin rpy="0 1.5707963267948966 0" xyz="0 0 -0.1065" />
+      <origin rpy="0 1.5707963267948966 0" xyz="-0.015 0 -0.13" />
       <geometry>
-        <box size="0.11 0.0245 0.034" />
+        <box size="0.2 0.0245 0.034" />
       </geometry>
     </collision>
   </link>

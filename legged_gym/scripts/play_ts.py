@@ -2,11 +2,10 @@ from legged_gym import *
 import os
 
 from legged_gym.envs import *
-from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Logger
+from legged_gym.utils import  get_args, task_registry, Logger, PolicyExporterTS
 
 import numpy as np
 import torch
-
 
 def play(args):
     if SIMULATOR == "genesis":
@@ -56,11 +55,12 @@ def play(args):
     ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
     policy = ppo_runner.get_inference_policy(device=env.device)
     
-    # export policy as a jit module (used to run it from C++)
+    # export policy as a jit module
     if EXPORT_POLICY:
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, train_cfg.runner.load_run, 'exported')
-        export_policy_as_jit(ppo_runner.alg.actor_critic, path, train_cfg.runner.load_run, export_type="ts")
-        print('Exported policy as jit script to: ', path)
+        exporter = PolicyExporterTS(ppo_runner.alg.actor_critic)
+        exporter.export(path, train_cfg.runner.load_run)
+        print('Exported policy (python) as jit script to: ', path)
 
     logger = Logger(env.dt)
     robot_index = 0 # which robot is used for logging

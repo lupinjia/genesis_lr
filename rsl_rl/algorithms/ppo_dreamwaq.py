@@ -75,8 +75,11 @@ class PPO_DreamWaQ:
         self.actor_critic = actor_critic
         self.actor_critic.to(self.device)
         self.storage = None  # initialized later
+        self.rl_parameters = list(self.actor_critic.actor.parameters()) + \
+                             list(self.actor_critic.critic.parameters()) + \
+                            [self.actor_critic.std]
         self.optimizer = optim.Adam(
-            self.actor_critic.parameters(), lr=learning_rate)
+            self.rl_parameters, lr=learning_rate)
         self.vae_optimizer = optim.Adam(
             self.actor_critic.vae.parameters(), lr=encoder_lr)
         self.transition = RolloutStorageDreamWaQ.Transition()
@@ -213,7 +216,7 @@ class PPO_DreamWaQ:
             self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(
-                self.actor_critic.parameters(), self.max_grad_norm)
+                self.rl_parameters, self.max_grad_norm)
             self.optimizer.step()
             
             # vae gradient step

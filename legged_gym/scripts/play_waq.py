@@ -2,7 +2,7 @@ from legged_gym import *
 import os
 
 from legged_gym.envs import *
-from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Logger
+from legged_gym.utils import  get_args, PolicyExporterWaQ, task_registry, Logger
 
 import numpy as np
 import torch
@@ -59,7 +59,8 @@ def play(args):
     # export policy as a jit module (used to run it from C++)
     if EXPORT_POLICY:
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, train_cfg.runner.load_run, 'exported')
-        export_policy_as_jit(ppo_runner.alg.actor_critic, path, train_cfg.runner.load_run, export_type="ts")
+        exporter = PolicyExporterWaQ(ppo_runner.alg.actor_critic)
+        exporter.export(path, train_cfg.runner.load_run)
         print('Exported policy as jit script to: ', path)
 
     logger = Logger(env.dt)
@@ -109,6 +110,6 @@ def play(args):
             logger.print_rewards()
 
 if __name__ == '__main__':
-    EXPORT_POLICY = False
+    EXPORT_POLICY = True
     args = get_args()
     play(args)

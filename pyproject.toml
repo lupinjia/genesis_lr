@@ -29,7 +29,7 @@ isaacgym = [
 genesis = [
     "torch==2.7.1+cu118",
     "torchvision==0.22.1+cu118",
-    "genesis-world>=0.3.2",
+    "genesis-world<=0.3.4",
     "numpy==2.1.2",
     "pandas==2.3.2",
     "scipy==1.15.3",

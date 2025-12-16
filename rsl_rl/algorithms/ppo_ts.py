@@ -43,10 +43,15 @@ class PPO_TS:
         self.actor_critic = actor_critic
         self.actor_critic.to(self.device)
         self.storage = None  # initialized later
+        # Only include parameter of actor, critic, privilege encoder and std
+        self.rl_parameters = list(self.actor_critic.actor.parameters()) + \
+                             list(self.actor_critic.critic.parameters()) + \
+                             list(self.actor_critic.privilege_encoder.parameters()) + \
+                             [self.actor_critic.std]
         self.optimizer = optim.Adam(
-            self.actor_critic.parameters(), lr=learning_rate)
+            self.rl_parameters, lr=learning_rate)
         self.history_encoder_optimizer = optim.Adam(
-            self.actor_critic.parameters(), lr=encoder_lr)
+            self.actor_critic.history_encoder.parameters(), lr=encoder_lr)
         self.transition = RolloutStorageTS.Transition()
 
         # PPO parameters
@@ -175,9 +180,20 @@ class PPO_TS:
             self.optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(
-                self.actor_critic.parameters(), self.max_grad_norm)
+                self.rl_parameters, self.max_grad_norm)
             self.optimizer.step()
             
+            mean_value_loss += value_loss.item()
+            mean_surrogate_loss += surrogate_loss.item()
+        
+        if self.actor_critic.is_recurrent:
+            generator = self.storage.reccurent_mini_batch_generator(
+                self.num_mini_batches, self.num_learning_epochs)
+        else:
+            generator = self.storage.mini_batch_generator(
+                self.num_mini_batches, self.num_learning_epochs)
+        for obs_batch, privileged_obs_batch, obs_histories_batch, critic_obs_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, \
+                old_mu_batch, old_sigma_batch, hid_states_batch, masks_batch in generator:
             # history encoder gradient step
             for _ in range(self.num_encoder_epochs):
                 if self.actor_critic.history_encoder_type == "TCN":
@@ -193,12 +209,11 @@ class PPO_TS:
                     encoder_predictions, encoder_targets)
                 self.history_encoder_optimizer.zero_grad()
                 encoder_loss.backward()
+                nn.utils.clip_grad_norm_(
+                    self.actor_critic.history_encoder.parameters(), self.max_grad_norm)
                 self.history_encoder_optimizer.step()
                 mean_encoder_loss += encoder_loss.item()
                 
-            mean_value_loss += value_loss.item()
-            mean_surrogate_loss += surrogate_loss.item()
-            
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates
         mean_surrogate_loss /= num_updates

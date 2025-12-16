@@ -104,16 +104,14 @@ class Go2TSCfg( LeggedRobotCfg ):
         only_positive_rewards = True
         class scales( LeggedRobotCfg.rewards.scales ):
             # limitation
-            dof_pos_limits = -10.0
-            collision = -2.0
+            dof_pos_limits = -5.0
+            collision = -1.0
             # command tracking
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
             # smooth
-            lin_vel_z = -0.5
-            base_height = -1.0
+            lin_vel_z = -2.0
             ang_vel_xy = -0.05
-            orientation = -0.5
             dof_power = -2.e-4
             dof_acc = -2.e-7
             action_rate = -0.01
@@ -121,9 +119,9 @@ class Go2TSCfg( LeggedRobotCfg ):
             # gait
             feet_air_time = 1.0
             foot_clearance = 0.2
-            hip_pos = -0.2
-            dof_close_to_default = -0.05
-            dof_vel_stand_still = -0.5
+            hip_pos = -0.1
+            dof_pos_stand_still = -1.0
+            feet_contact_stand_still = 0.5
 
     class commands( LeggedRobotCfg.commands ):
         curriculum = True
@@ -143,7 +141,7 @@ class Go2TSCfg( LeggedRobotCfg ):
         randomize_base_mass = True
         added_mass_range = [-1., 1.]
         push_robots = True
-        push_interval_s = 15
+        push_interval_s = 10
         max_push_vel_xy = 1.
         randomize_com_displacement = True
         com_displacement_range = [-0.03, 0.03]
@@ -171,14 +169,15 @@ class Go2TSCfgPPO( LeggedRobotCfgPPO ):
         history_encoder_final_layer_dim = 128          # for TCN
         kernel_size = 5
     class algorithm( LeggedRobotCfgPPO.algorithm ):
-        encoder_lr = 5.e-4
+        encoder_lr = 2.e-4
         num_encoder_epochs = 2
+        entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticTS"
         algorithm_class_name = "PPO_TS"
         run_name = 'ts_gs'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Nov27_17-44-19_ts_gs"
+        load_run = "Dec15_10-47-28_ts_gs"
         checkpoint = -1
-        max_iterations = 4000
+        max_iterations = 3000

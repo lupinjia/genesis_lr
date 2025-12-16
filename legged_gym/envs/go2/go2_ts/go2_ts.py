@@ -369,3 +369,12 @@ class Go2TS(LeggedRobot):
             self.simulator.dof_pos[:, hip_joint_indices] - 
             self.simulator.default_dof_pos[:, hip_joint_indices]), dim=-1)
         return dof_pos_error
+    
+    def _reward_thigh_pos(self):
+        """ Reward for the thigh joint position close to default position
+        """
+        thigh_joint_indices = [1, 4, 7, 10]
+        dof_pos_error = torch.sum(torch.square(
+            self.simulator.dof_pos[:, thigh_joint_indices] - 
+            self.simulator.default_dof_pos[:, thigh_joint_indices]), dim=-1)
+        return dof_pos_error
