@@ -11,7 +11,7 @@ class GO2WTWCfg(LeggedRobotCfg):
         c_frame_stack = 5  # critic frame stack
         num_single_obs = 61
         num_observations = int(num_single_obs * frame_stack)
-        single_num_privileged_obs = num_single_obs + 41
+        single_num_privileged_obs = num_single_obs + 38
         num_privileged_obs = int(c_frame_stack * single_num_privileged_obs)
         env_spacing = 1.0
 
@@ -149,12 +149,6 @@ class GO2WTWCfg(LeggedRobotCfg):
         randomize_pd_gain = enable
         kp_range = [0.8, 1.2]
         kd_range = [0.8, 1.2]
-        randomize_joint_armature = enable
-        joint_armature_range = [0.015, 0.025]  # [N*m*s/rad]
-        randomize_joint_stiffness = enable
-        joint_stiffness_range = [0.01, 0.02]
-        randomize_joint_damping = enable
-        joint_damping_range = [0.25, 0.3]
         randomize_ctrl_delay = False
         ctrl_delay_step_range = [0, 1]
     

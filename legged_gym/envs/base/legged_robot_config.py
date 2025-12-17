@@ -121,15 +121,18 @@ class LeggedRobotCfg(BaseConfig):
         com_pos_z_range = [-0.01, 0.01]
         randomize_ctrl_delay = False
         ctrl_delay_step_range = [0, 1]
+        randomize_pd_gain = False
+        kp_range = [0.8, 1.2]
+        kd_range = [0.8, 1.2]
+        # Randomizing joint armature/friction/damping in Genesis require batching dofs/links info, 
+        # which will slow the simulation greatly.
+        # It is recommended to keep them false. If needed, please use it in IsaacGym only.
         randomize_joint_armature = False
         joint_armature_range = [0.0, 0.05]  # [N*m*s/rad]
         randomize_joint_friction = False
         joint_friction_range = [0.0, 0.1]
         randomize_joint_damping = False
         joint_damping_range = [0.0, 1.0]
-        randomize_pd_gain = False
-        kp_range = [0.8, 1.2]
-        kd_range = [0.8, 1.2]
 
     class rewards:
         class scales:

@@ -24,12 +24,13 @@ isaacgym = [
     "scipy==1.10.1",
     "matplotlib==3.7.5",
     "fsspec<=2025.3.0",  # fsspec==2025.3.1 has bug with python 3.8
-    "isaacgym==1.0rc4"
+    "isaacgym==1.0rc4",
+    "onnx>=1.17.0"
 ]
 genesis = [
     "torch==2.7.1+cu118",
     "torchvision==0.22.1+cu118",
-    "genesis-world<=0.3.4",
+    "genesis-world==0.3.7", # genesis>=0.3.8 does not support torch<2.8.0
     "numpy==2.1.2",
     "pandas==2.3.2",
     "scipy==1.15.3",

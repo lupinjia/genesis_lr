@@ -62,9 +62,9 @@ class Go2EE(LeggedRobot):
                      self.kp_scale_offset),                 # num_actions
                     (self.simulator._kd_scale - 
                      self.kd_scale_offset),                 # num_actions
-                    self.simulator._joint_armature,         # 1
-                    self.simulator._joint_stiffness,        # 1
-                    self.simulator._joint_damping,          # 1
+                    # self.simulator._joint_armature,         # 1
+                    # self.simulator._joint_friction,        # 1
+                    # self.simulator._joint_damping,          # 1
             ), dim=-1)
         
         # Critic observation
@@ -170,13 +170,6 @@ class Go2EE(LeggedRobot):
         super()._parse_cfg(cfg)
         self.num_estimator_features = cfg.env.num_estimator_features
         self.num_estimator_labels = cfg.env.num_estimator_labels
-        # determine privileged observation offset to normalize privileged observations
-        self.friction_value_offset = (self.cfg.domain_rand.friction_range[0] + 
-                                      self.cfg.domain_rand.friction_range[1]) / 2  # mean value
-        self.kp_scale_offset = (self.cfg.domain_rand.kp_range[0] +
-                                self.cfg.domain_rand.kp_range[1]) / 2  # mean value
-        self.kd_scale_offset = (self.cfg.domain_rand.kd_range[0] +
-                                self.cfg.domain_rand.kd_range[1]) / 2  # mean value
 
     def post_physics_step(self):
         """ check terminations, compute observations and rewards

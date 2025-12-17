@@ -1,21 +1,17 @@
 from legged_gym import *
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
-class TRON1PF_TSCfg( LeggedRobotCfg ):
+class TRON1PF_EECfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
-        num_observations = 27  # num_obs
-        num_privileged_obs = 51
-        frame_stack = 20    # number of frames to stack for obs_history
-        num_history_obs = int(num_observations * frame_stack)
-        num_latent_dims = num_privileged_obs
-        c_frame_stack = 5
-        single_critic_obs_len = num_observations + 19 + 81 + 8
-        num_critic_obs = c_frame_stack * single_critic_obs_len
-        # Privileged_obs and critic_obs are seperated here
-        # privileged_obs contains information given to privileged encoder
-        # critic_obs contains information given to critic, including some privileged information
-        # This operation is to prevent the critic from receiving noisy input from the concatenation of current observation(noisy) and latent vector
+        num_single_obs = 27  # number of elements in single step observation
+        frame_stack = 20     # number of frames to stack for obs_history
+        num_estimator_features = int(num_single_obs * frame_stack) # dim of input of estimator
+        num_estimator_labels = 13 # dim of output of estimator
+        c_frame_stack = 5         # number of frames to stack for critic input
+        single_critic_obs_len = num_single_obs + 19 + 81 + 8 # number of elements in single step critic observation
+        num_privileged_obs = c_frame_stack * single_critic_obs_len
+        # privileged_obs here is actually critic_obs
         num_actions = 6
         env_spacing = 0.5
     
@@ -25,7 +21,7 @@ class TRON1PF_TSCfg( LeggedRobotCfg ):
         else:
             mesh_type = "trimesh"  # for isaacgym
         restitution = 0.
-        border_size = 20.0 # [m]
+        border_size = 10.0 # [m]
         curriculum = True
         # rough terrain only:
         obtain_terrain_info_around_feet = True
@@ -132,7 +128,7 @@ class TRON1PF_TSCfg( LeggedRobotCfg ):
         randomize_base_mass = True
         added_mass_range = [-1., 1.]
         push_robots = True
-        push_interval_s = 15
+        push_interval_s = 10
         max_push_vel_xy = 1.
         randomize_com_displacement = True
         com_displacement_range = [-0.03, 0.03]
@@ -140,28 +136,25 @@ class TRON1PF_TSCfg( LeggedRobotCfg ):
         kp_range = [0.8, 1.2]
         kd_range = [0.8, 1.2]
 
-class TRON1PF_TSCfgPPO( LeggedRobotCfgPPO ):
+class TRON1PF_EECfgPPO( LeggedRobotCfgPPO ):
     seed = 1
-    runner_class_name = "TSRunner" # Teacher-Student Runner
+    runner_class_name = "EERunner" # Teacher-Student Runner
     class policy( LeggedRobotCfgPPO.policy ):
+        actor_hidden_dims = [512, 256, 128]
         critic_hidden_dims = [1024, 256, 128]
-        privilege_encoder_hidden_dims = [256, 128]
-        history_encoder_type = "MLP" # "MLP" or "TCN"
-        history_encoder_hidden_dims = [256, 128]       # for MLP
-        history_encoder_channel_dims = [1, 1, 1, 1]    # for TCN
-        history_encoder_dilation = [1, 1, 2, 1]        # for TCN
-        history_encoder_stride = [1, 2, 1, 2]          # for TCN
-        history_encoder_final_layer_dim = 128          # for TCN
-        kernel_size = 5
+        estimator_hidden_dims = [256, 128]
     class algorithm( LeggedRobotCfgPPO.algorithm ):
-        encoder_lr = 1e-3
-        num_encoder_epochs = 2
+        estimator_lr = 2.e-4
+        num_estimator_epochs = 1
     class runner( LeggedRobotCfgPPO.runner ):
-        policy_class_name = "ActorCriticTS"
-        algorithm_class_name = "PPO_TS"
-        run_name = 'gym_ts_blind'
+        policy_class_name = "ActorCriticEE"
+        algorithm_class_name = "PPO_EE"
+        if SIMULATOR == "genesis":
+            run_name = "gs_ee"
+        else:
+            run_name = 'gym_ee'
         experiment_name = 'tron1_pf_rough'
         save_interval = 500
-        load_run = "Oct26_16-35-39_gym_ts_blind"
+        load_run = "Dec16_20-21-43_gym_ee"
         checkpoint = -1
-        max_iterations = 2500
+        max_iterations = 3000

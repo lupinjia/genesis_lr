@@ -9,7 +9,7 @@ class Go2EECfg( LeggedRobotCfg ):
         num_estimator_features = int(num_single_obs * frame_stack)
         num_estimator_labels = 24
         c_frame_stack = 5
-        single_critic_obs_len = num_single_obs + 34 + 81 + 17
+        single_critic_obs_len = num_single_obs + 31 + 81 + 17
         num_privileged_obs = c_frame_stack * single_critic_obs_len
         # privileged_obs here is actually critic_obs
         num_actions = 12
@@ -143,11 +143,11 @@ class Go2EECfg( LeggedRobotCfg ):
         randomize_pd_gain = True
         kp_range = [0.8, 1.2]
         kd_range = [0.8, 1.2]
-        randomize_joint_armature = True
+        randomize_joint_armature = False
         joint_armature_range = [0.015, 0.025]  # [N*m*s/rad]
-        randomize_joint_stiffness = True
-        joint_stiffness_range = [0.01, 0.02]
-        randomize_joint_damping = True
+        randomize_joint_friction = False
+        joint_friction_range = [0.01, 0.02]
+        randomize_joint_damping = False
         joint_damping_range = [0.25, 0.3]
 
 class Go2EECfgPPO( LeggedRobotCfgPPO ):
@@ -163,9 +163,12 @@ class Go2EECfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = "ActorCriticEE"
         algorithm_class_name = "PPO_EE"
-        run_name = 'gym_ee'
+        if SIMULATOR == "genesis":
+            run_name = "gs_ee"
+        else:
+            run_name = 'gym_ee'
         experiment_name = 'go2_rough'
         save_interval = 500
-        load_run = "Dec15_14-57-47_gym_ee"
+        load_run = "Dec17_14-18-58_gs_ee"
         checkpoint = -1
         max_iterations = 3000

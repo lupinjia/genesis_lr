@@ -126,6 +126,8 @@ def get_args():
     parser.add_argument('--resume',         action='store_true', default=False)
     parser.add_argument('-o', '--offline',  action='store_true', default=False)
     parser.add_argument('--sync_wandb',     action='store_true', default=False)
+    parser.add_argument('--export_torch',   action='store_true', default=True)
+    parser.add_argument('--export_onnx',    action='store_true', default=False)
 
     parser.add_argument('--debug',          action='store_true', default=False)
     parser.add_argument('--ckpt',           type=int, default=1000)
@@ -181,6 +183,21 @@ class PolicyExporterEE(torch.nn.Module):
         self.to('cpu')
         traced_script_module = torch.jit.script(self)
         traced_script_module.save(path)
+    
+    def export_onnx(self, path, cfg, prefix=None):
+        os.makedirs(path, exist_ok=True)
+        filename = prefix + "_policy.onnx" if prefix != None else "ee_policy.onnx"
+        path = os.path.join(path, filename)
+        self.to('cpu')
+        input_names = ["nn_input"]
+        output_names = ["nn_output"]
+        dummy_input = torch.randn(1, cfg.env.num_estimator_features)
+        torch.onnx.export(self, dummy_input, path, 
+                          verbose=True, 
+                          export_params=True,
+                          input_names=input_names,
+                          output_names=output_names,
+                          opset_version=13)
 
 class PolicyExporterWaQ(torch.nn.Module):
     def __init__(self, actor_critic):

@@ -80,9 +80,6 @@ class GO2WTW(LeggedRobot):
                 # ctrl_delay,                                    # 1
                 self.simulator._kp_scale,                                # 12
                 self.simulator._kd_scale,                                # 12
-                self.simulator._joint_armature,                          # 1
-                self.simulator._joint_stiffness,                         # 1
-                self.simulator._joint_damping,                           # 1
                 # privileged infos
                 self.exp_C_frc_fl,
                 self.exp_C_frc_fr, 

@@ -46,10 +46,8 @@ Please refer to the [doc of this repo](https://genesis-lr-doc.readthedocs.io/en/
 
 | Robot | Sim | Real |
 |--- | --- | --- |
-| Unitree Go2 | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) |
-| Limx TRON1_PF (flat) | ![](./resources/images/tron1_pf_demo.gif) |[video](https://www.bilibili.com/video/BV1MdePzcEvk/?spm_id_from=333.1387.homepage.video_card.click&vd_source=50fc92fb0e7291031bbb72e3c05b2edc) |
-| TRON1_PF (rough) | ![](./resources/images/tron1_pf_rough_demo.gif) | [video](https://www.bilibili.com/video/BV1MdePzcEvk/?spm_id_from=333.1387.homepage.video_card.click&vd_source=50fc92fb0e7291031bbb72e3c05b2edc) |
-| Limx TRON1_SF (flat) | | |
+| Unitree Go2 | ![](https://raw.githubusercontent.com/lupinjia/demo_imgs/refs/heads/master/ee_demo.gif) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) |
+| TRON1_PF | ![](./resources/images/tron1_pf_rough_demo.gif) | [video](https://www.bilibili.com/video/BV1MdePzcEvk/?spm_id_from=333.1387.homepage.video_card.click&vd_source=50fc92fb0e7291031bbb72e3c05b2edc) |
 
 
 ## 🙏 Acknowledgements

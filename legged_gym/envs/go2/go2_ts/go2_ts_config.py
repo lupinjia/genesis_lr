@@ -5,12 +5,12 @@ class Go2TSCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
         num_observations = 45  # num_obs
-        num_privileged_obs = 97
+        num_privileged_obs = 94
         frame_stack = 20    # number of frames to stack for obs_history
         num_history_obs = int(num_observations * frame_stack)
         num_latent_dims = num_privileged_obs
         c_frame_stack = 5
-        single_critic_obs_len = num_observations + 34 + 81 + 12 + 3
+        single_critic_obs_len = num_observations + 31 + 81 + 12 + 3
         num_critic_obs = c_frame_stack * single_critic_obs_len
         # Privileged_obs and critic_obs are seperated here
         # privileged_obs contains information given to privileged encoder
@@ -148,11 +148,11 @@ class Go2TSCfg( LeggedRobotCfg ):
         randomize_pd_gain = True
         kp_range = [0.8, 1.2]
         kd_range = [0.8, 1.2]
-        randomize_joint_armature = True
+        randomize_joint_armature = False
         joint_armature_range = [0.015, 0.025]  # [N*m*s/rad]
-        randomize_joint_stiffness = True
-        joint_stiffness_range = [0.01, 0.02]
-        randomize_joint_damping = True
+        randomize_joint_friction = False
+        joint_friction_range = [0.01, 0.02]
+        randomize_joint_damping = False
         joint_damping_range = [0.25, 0.3]
 
 class Go2TSCfgPPO( LeggedRobotCfgPPO ):

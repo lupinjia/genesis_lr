@@ -71,6 +71,9 @@ class GenesisSimulator(Simulator):
     def _parse_cfg(self):
         self.debug = self.cfg.env.debug
         self.control_dt = self.cfg.sim.dt * self.cfg.control.decimation
+        self.batch_dofs_links_info = self.cfg.domain_rand.randomize_joint_armature or \
+                self.cfg.domain_rand.randomize_joint_friction or \
+                self.cfg.domain_rand.randomize_joint_damping
         if self.cfg.sensor.add_depth:
             self.frame_count = 0
 
@@ -97,7 +100,9 @@ class GenesisSimulator(Simulator):
                 enable_joint_limit=True,
                 enable_self_collision=self.cfg.asset.self_collisions_gs,
                 max_collision_pairs=self.cfg.sim.max_collision_pairs,
-                IK_max_targets=self.cfg.sim.IK_max_targets
+                IK_max_targets=self.cfg.sim.IK_max_targets,
+                batch_dofs_info=self.batch_dofs_links_info,
+                batch_links_info=self.batch_dofs_links_info,
             ),
             show_viewer=not self.headless,
         )
@@ -321,8 +326,12 @@ class GenesisSimulator(Simulator):
         self.batched_p_gains = self.p_gains[None, :].repeat(self.num_envs, 1)
         self.batched_d_gains = self.d_gains[None, :].repeat(self.num_envs, 1)
         # PD control params
-        self.robot.set_dofs_kp(self.p_gains, self.motors_dof_idx)
-        self.robot.set_dofs_kv(self.d_gains, self.motors_dof_idx)
+        if self.batch_dofs_links_info:
+            self.robot.set_dofs_kp(self.batched_p_gains, self.motors_dof_idx)
+            self.robot.set_dofs_kv(self.batched_d_gains, self.motors_dof_idx)
+        else:
+            self.robot.set_dofs_kp(self.p_gains, self.motors_dof_idx)
+            self.robot.set_dofs_kv(self.d_gains, self.motors_dof_idx)
 
     def step(self, actions):
         """Simulator steps, receiving actions from the agent"""
@@ -753,7 +762,7 @@ class GenesisSimulator(Simulator):
             self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
         self._joint_armature = torch.zeros(
             self.num_envs, 1, dtype=torch.float, device=self.device, requires_grad=False)
-        self._joint_stiffness = torch.zeros(
+        self._joint_friction = torch.zeros(
             self.num_envs, 1, dtype=torch.float, device=self.device, requires_grad=False)
         self._joint_damping = torch.zeros(
             self.num_envs, 1, dtype=torch.float, device=self.device, requires_grad=False)
@@ -807,22 +816,23 @@ class GenesisSimulator(Simulator):
         """ Randomize joint armature of the robot
         """
         min_armature, max_armature = self.cfg.domain_rand.joint_armature_range
-        armature = torch.rand((1,), dtype=torch.float, device=self.device) \
+        armature = torch.rand((len(env_ids),), dtype=torch.float, device=self.device) \
             * (max_armature - min_armature) + min_armature
-        self._joint_armature[env_ids, 0] = armature[0].detach().clone()
-        armature = armature.repeat(self.num_actions)  # repeat for all motors
+        self._joint_armature[env_ids, 0] = armature.detach().clone()
+        # [len(env_ids)] -> [len(env_ids), num_actions], all joints within an env have the same armature
+        armature = armature.unsqueeze(1).repeat(1, self.num_actions)
         self.robot.set_dofs_armature(
-            armature, self.motors_dof_idx, envs_idx=env_ids)  # all environments share the same armature
+            armature, self.motors_dof_idx, envs_idx=env_ids) 
         # This armature will be Refreshed when envs are reset
 
     def _randomize_joint_friction(self, env_ids):
         """ Randomize joint friction of the robot
         """
         min_friction, max_friction = self.cfg.domain_rand.joint_friction_range
-        friction = torch.rand((1,), dtype=torch.float, device=self.device) \
+        friction = torch.rand((len(env_ids),), dtype=torch.float, device=self.device) \
             * (max_friction - min_friction) + min_friction
-        self._joint_friction[env_ids, 0] = friction[0].detach().clone()
-        friction = friction.repeat(self.num_actions)
+        self._joint_friction[env_ids, 0] = friction.detach().clone()
+        friction = friction.unsqueeze(1).repeat(1, self.num_actions)
         self.robot.set_dofs_stiffness(
             friction, self.motors_dof_idx, envs_idx=env_ids)
 
@@ -830,10 +840,10 @@ class GenesisSimulator(Simulator):
         """ Randomize joint damping of the robot
         """
         min_damping, max_damping = self.cfg.domain_rand.joint_damping_range
-        damping = torch.rand((1,), dtype=torch.float, device=self.device) \
+        damping = torch.rand((len(env_ids),), dtype=torch.float, device=self.device) \
             * (max_damping - min_damping) + min_damping
-        self._joint_damping[env_ids, 0] = damping[0].detach().clone()
-        damping = damping.repeat(self.num_actions)
+        self._joint_damping[env_ids, 0] = damping.detach().clone()
+        damping = damping.unsqueeze(1).repeat(1, self.num_actions)
         self.robot.set_dofs_damping(
             damping, self.motors_dof_idx, envs_idx=env_ids)
 
@@ -1565,7 +1575,7 @@ class IsaacGymSimulator(Simulator):
             self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
         self._joint_armature = torch.zeros(
             self.num_envs, 1, dtype=torch.float, device=self.device, requires_grad=False)
-        self._joint_stiffness = torch.zeros(
+        self._joint_friction = torch.zeros(
             self.num_envs, 1, dtype=torch.float, device=self.device, requires_grad=False)
         self._joint_damping = torch.zeros(
             self.num_envs, 1, dtype=torch.float, device=self.device, requires_grad=False)

@@ -12,7 +12,7 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
         num_explicit_dims = 24  # base linear velocity
         num_decoder_output = num_observations
         c_frame_stack = 5
-        single_critic_obs_len = num_observations + 34 + 81 + 17 + 3
+        single_critic_obs_len = num_observations + 31 + 81 + 17 + 3
         num_privileged_obs = c_frame_stack * single_critic_obs_len
         # Privileged_obs and critic_obs are seperated here
         # privileged_obs contains information given to privileged encoder
@@ -151,11 +151,11 @@ class Go2DreamWaQCfg( LeggedRobotCfg ):
         randomize_pd_gain = True
         kp_range = [0.8, 1.2]
         kd_range = [0.8, 1.2]
-        randomize_joint_armature = True
+        randomize_joint_armature = False
         joint_armature_range = [0.015, 0.025]  # [N*m*s/rad]
-        randomize_joint_stiffness = True
-        joint_stiffness_range = [0.01, 0.02]
-        randomize_joint_damping = True
+        randomize_joint_friction = False
+        joint_friction_range = [0.01, 0.02]
+        randomize_joint_damping = False
         joint_damping_range = [0.25, 0.3]
 
 class Go2DreamWaQCfgPPO( LeggedRobotCfgPPO ):

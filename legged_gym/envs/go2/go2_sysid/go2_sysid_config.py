@@ -74,8 +74,8 @@ class GO2SysIDCfg( LeggedRobotCfg ):
         randomize_ctrl_delay = False
         randomize_joint_armature = False
         joint_armature_range = [0.0, 0.05]  # [N*m*s/rad]
-        randomize_joint_stiffness = False
-        joint_stiffness_range = [0.0, 0.1]
+        randomize_joint_friction = False
+        joint_friction_range = [0.0, 0.1]
         randomize_joint_damping = False
         joint_damping_range = [0.0, 1.0]
         delay_steps = 0
@@ -86,12 +86,12 @@ class GO2SysIDCfg( LeggedRobotCfg ):
     class sysid_param_range:
         
         # without sysid params
-        # joint_stiffness_range = [0.0, 0.0]
+        # joint_friction_range = [0.0, 0.0]
         # joint_damping_range = [0.0, 0.0]
         # joint_armature_range = [0.0, 0.0]
         
         # with sysid params
-        joint_stiffness_range = [0.0, 0.1]
+        joint_friction_range = [0.0, 0.1]
         joint_damping_range = [0.0, 1.0]
         joint_armature_range = [0.0, 0.1]
         

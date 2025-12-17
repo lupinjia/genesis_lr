@@ -145,3 +145,15 @@ class TRON1PF(LeggedRobot):
         rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1  # no reward for zero command
         self.feet_air_time *= ~contact_filt
         return rew_airTime
+    
+    def _reward_feet_distance(self):
+        '''reward for feet distance'''
+        feet_xy_distance = torch.norm(
+            self.simulator.feet_pos[:, 0, [0, 1]] - self.simulator.feet_pos[:, 1, [0, 1]], dim=-1)
+        return torch.max(torch.zeros_like(feet_xy_distance),
+                         self.cfg.rewards.foot_distance_threshold - feet_xy_distance)
+    
+    def _reward_no_fly(self):
+        contacts = self.simulator.link_contact_forces[:, self.simulator.feet_indices, 2] > 0.1
+        single_contact = torch.sum(1.*contacts, dim=1)==1
+        return 1.*single_contact

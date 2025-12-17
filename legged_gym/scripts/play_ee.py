@@ -66,6 +66,8 @@ def play(args):
         exporter = PolicyExporterEE(ppo_runner.alg.actor_critic)
         exporter.export(path, train_cfg.runner.load_run)
         print('Exported policy as jit script to: ', path)
+        if EXPORT_ONNX:
+            exporter.export_onnx(path, env_cfg, train_cfg.runner.load_run)
 
     logger = Logger(env.dt)
     robot_index = 0 # which robot is used for logging
@@ -116,6 +118,7 @@ def play(args):
             logger.print_rewards()
 
 if __name__ == '__main__':
-    EXPORT_POLICY = True
     args = get_args()
+    EXPORT_POLICY = args.export_torch
+    EXPORT_ONNX = args.export_onnx
     play(args)

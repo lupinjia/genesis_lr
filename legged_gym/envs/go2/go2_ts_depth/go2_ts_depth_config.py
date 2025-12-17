@@ -150,8 +150,8 @@ class Go2TSDepthCfg( LeggedRobotCfg ):
         kd_range = [0.8, 1.2]
         randomize_joint_armature = True
         joint_armature_range = [0.015, 0.025]  # [N*m*s/rad]
-        randomize_joint_stiffness = True
-        joint_stiffness_range = [0.01, 0.02]
+        randomize_joint_friction = True
+        joint_friction_range = [0.01, 0.02]
         randomize_joint_damping = True
         joint_damping_range = [0.25, 0.3]
     

@@ -73,7 +73,7 @@ class Go2CaT(LeggedRobot):
                     (self.simulator._kd_scale - 
                      self.kd_scale_offset),                 # num_actions
                     self.simulator._joint_armature,         # 1
-                    self.simulator._joint_stiffness,        # 1
+                    self.simulator._joint_friction,        # 1
                     self.simulator._joint_damping,          # 1
             ), dim=-1)
         
