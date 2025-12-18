@@ -113,9 +113,9 @@ class TRON1PFCfg( LeggedRobotCfg ):
         push_interval_s = 10
         max_push_vel_xy = 1.
         randomize_com_displacement = True
-        com_pos_x_range = [-0.01, 0.01]
-        com_pos_y_range = [-0.01, 0.01]
-        com_pos_z_range = [-0.01, 0.01]
+        com_pos_x_range = [-0.03, 0.03]
+        com_pos_y_range = [-0.03, 0.03]
+        com_pos_z_range = [-0.03, 0.03]
 
 class TRON1PFCfgPPO( LeggedRobotCfgPPO ):
     class policy (LeggedRobotCfgPPO.policy ):

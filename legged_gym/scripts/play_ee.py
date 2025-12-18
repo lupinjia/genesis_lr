@@ -20,11 +20,12 @@ def play(args):
     env_cfg.viewer.rendered_envs_idx = list(range(env_cfg.env.num_envs))
     env_cfg.terrain.num_rows = 2
     env_cfg.terrain.num_cols = 2
-    env_cfg.terrain.border_size = 3.0
+    env_cfg.terrain.border_size = 5.0
     env_cfg.noise.add_noise = False
     env_cfg.terrain.curriculum = False
     env_cfg.terrain.selected = True
     env_cfg.env.debug = True
+    env_cfg.asset.fix_base_link = False
     
     # stairs
     env_cfg.terrain.terrain_kwargs = {"type": "terrain_utils.pyramid_stairs_terrain",
@@ -44,7 +45,7 @@ def play(args):
     #                                   "platform_size": 3.0}
     
     # velocity range
-    env_cfg.commands.ranges.lin_vel_x = [1.0, 1.0]
+    env_cfg.commands.ranges.lin_vel_x = [0.5, 0.5]
     env_cfg.commands.ranges.lin_vel_y = [0., 0.]
     env_cfg.commands.ranges.ang_vel_yaw = [0., 0.]
     env_cfg.commands.ranges.heading = [0, 0]
@@ -78,6 +79,7 @@ def play(args):
     for i in range(10*int(env.max_episode_length)):
         estimator_estimation = estimator(estimator_features.detach())
         actions = policy(estimator_features.detach(), estimator_estimation.detach())
+        # actions = torch.zeros_like(actions)  # zero action for testing
         estimator_features, estimator_labels, _, rews, dones, infos = env.step(actions.detach())
         
         # print debug info

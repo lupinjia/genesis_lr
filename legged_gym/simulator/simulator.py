@@ -60,6 +60,9 @@ class Simulator:
     
     def reset_dofs(self, env_ids, dof_pos, dof_vel):
         raise NotImplementedError("Subclasses should implement this method")
+    
+    def reset_root_states(self, env_ids, base_pos, base_quat, base_lin_vel, base_ang_vel):
+        raise NotImplementedError("Subclasses should implement this method")
 
 """ ********** Genesis Simulator ********** """
 class GenesisSimulator(Simulator):
@@ -167,6 +170,7 @@ class GenesisSimulator(Simulator):
 
         self._get_env_origins()
 
+        self.dof_names = self.cfg.asset.dof_names
         self.num_dof = len(self.cfg.asset.dof_names)
         self._init_domain_params()
 
@@ -283,6 +287,7 @@ class GenesisSimulator(Simulator):
         self.feet_vel = torch.zeros(
             (self.num_envs, len(self.feet_indices), 3), device=self.device, dtype=torch.float
         )
+        self.last_feet_vel = torch.zeros_like(self.feet_vel)
         # depth images
         if self.cfg.sensor.add_depth:
             self.depth_images = torch.zeros(
@@ -391,7 +396,6 @@ class GenesisSimulator(Simulator):
         self.robot.set_dofs_velocity(dofs_vel)
     
     def reset_idx(self, env_ids):
-        self._reset_root_states(env_ids)
         # domain randomization
         if self.cfg.domain_rand.randomize_friction:
             self._randomize_friction(env_ids)
@@ -409,6 +413,7 @@ class GenesisSimulator(Simulator):
             self._randomize_pd_gain(env_ids)
         
         self.last_dof_vel[env_ids] = 0.
+        self.last_feet_vel[env_ids] = 0.
         self.last_base_lin_vel[env_ids] = 0.
         self.last_base_ang_vel[env_ids] = 0.
     
@@ -616,35 +621,20 @@ class GenesisSimulator(Simulator):
         self.height_points[:, :, 0] = grid_x.flatten()
         self.height_points[:, :, 1] = grid_y.flatten()
 
-    def _reset_root_states(self, env_ids):
+    def reset_root_states(self, env_ids, base_pos, base_quat, base_lin_vel, base_ang_vel):
         """ Resets ROOT states position and velocities of selected environmments
             Sets base position based on the curriculum
             Selects randomized base velocities within -0.5:0.5 [m/s, rad/s]
         Args:
             env_ids (List[int]): Environemnt ids
         """
-        # base pos: xy [-1, 1]
-        if self.custom_origins:
-            self.base_pos[env_ids] = self.base_init_pos
-            self.base_pos[env_ids] += self.env_origins[env_ids]
-            self.base_pos[env_ids, :2] += torch_rand_float(-0.5, 0.5, (len(env_ids), 2), self.device)
-        else:
-            self.base_pos[env_ids] = self.base_init_pos
-            self.base_pos[env_ids] += self.env_origins[env_ids]
+        # base pos
+        self.base_pos[env_ids, :] = base_pos[:]
         self.robot.set_pos(
             self.base_pos[env_ids], zero_velocity=False, envs_idx=env_ids)
 
         # base quat
-        self.base_quat[env_ids, :] = self.base_init_quat.reshape(1, -1)
-        roll_random_scale = self.cfg.init_state.roll_random_scale
-        pitch_random_scale = self.cfg.init_state.pitch_random_scale
-        yaw_random_scale = self.cfg.init_state.yaw_random_scale
-        self.base_quat[env_ids, :] = \
-            quat_from_euler_xyz(
-                torch_rand_float(-roll_random_scale, roll_random_scale, (len(env_ids), 1), self.device).view(-1),
-                torch_rand_float(-pitch_random_scale, pitch_random_scale, (len(env_ids), 1), self.device).view(-1),
-                torch_rand_float(-yaw_random_scale, yaw_random_scale, (len(env_ids), 1), self.device).view(-1)
-            )
+        self.base_quat[env_ids, :] = base_quat[:]
         self.base_quat_gs[env_ids, 0] = self.base_quat[env_ids, 3]  # xyzw to wxyz
         self.base_quat_gs[env_ids, 1:4] = self.base_quat[env_ids, 0:3] # xyzw to wxyz
         self.robot.set_quat(
@@ -655,10 +645,8 @@ class GenesisSimulator(Simulator):
         self.projected_gravity = quat_rotate_inverse(self.base_quat, self.global_gravity)
 
         # reset root states - velocity
-        self.base_lin_vel[env_ids] = (
-            torch_rand_float(-0.5, 0.5, (len(env_ids), 3), self.device))
-        self.base_ang_vel[env_ids] = (
-            torch_rand_float(-0.5, 0.5, (len(env_ids), 3), self.device))
+        self.base_lin_vel[env_ids] = base_lin_vel[:]
+        self.base_ang_vel[env_ids] = base_ang_vel[:]
         base_vel = torch.concat(
             [self.base_lin_vel[env_ids], self.base_ang_vel[env_ids]], dim=1)
         self.robot.set_dofs_velocity(velocity=base_vel, dofs_idx_local=[
@@ -906,6 +894,20 @@ class IsaacGymSimulator(Simulator):
         elif mesh_type is not None:
             raise ValueError("Terrain mesh type not recognised. Allowed types are [None, plane, heightfield, trimesh]")
         
+        # specify the boundary of the heightfield
+        self.terrain_x_range = torch.zeros(2, device=self.device)
+        self.terrain_y_range = torch.zeros(2, device=self.device)
+        if self.cfg.terrain.mesh_type == 'heightfield' or self.cfg.terrain.mesh_type == 'trimesh':
+            # give a small margin(1.0m)
+            self.terrain_x_range[0] = -self.cfg.terrain.border_size + 1.0
+            self.terrain_x_range[1] = self.cfg.terrain.border_size + \
+                self.cfg.terrain.num_rows * self.cfg.terrain.terrain_length - 1.0
+            self.terrain_y_range[0] = -self.cfg.terrain.border_size + 1.0
+            self.terrain_y_range[1] = self.cfg.terrain.border_size + \
+                self.cfg.terrain.num_cols * self.cfg.terrain.terrain_width - 1.0
+        elif self.cfg.terrain.mesh_type == 'plane':  # the plane used has limited size,
+            pass
+        
     def _create_envs(self):
         """ Creates environments:
              1. loads the robot URDF/MJCF asset,
@@ -959,11 +961,10 @@ class IsaacGymSimulator(Simulator):
             for name in self.cfg.asset.contact_state_link_names:
                 contact_state_link_names.extend([s for s in body_names if name in s])
 
-        base_init_state_list = self.cfg.init_state.pos + self.cfg.init_state.rot_gym + self.cfg.init_state.lin_vel + self.cfg.init_state.ang_vel
-        self.base_init_state = torch.tensor(base_init_state_list, dtype=torch.float, 
-                                            device=self.device, requires_grad=False)
+        self.base_init_pos = torch.tensor(self.cfg.init_state.pos, dtype=torch.float, device=self.device, requires_grad=False)
+        self.base_init_quat = torch.tensor(self.cfg.init_state.rot_gym, dtype=torch.float, device=self.device, requires_grad=False)
         start_pose = gymapi.Transform()
-        start_pose.p = gymapi.Vec3(*self.base_init_state[:3])
+        start_pose.p = gymapi.Vec3(*self.base_init_pos)
 
         self._get_env_origins()
         env_lower = gymapi.Vec3(0., 0., 0.)
@@ -1049,6 +1050,7 @@ class IsaacGymSimulator(Simulator):
         self.link_contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3) # shape: num_envs, num_bodies, xyz axis
         self.feet_vel = self.rigid_body_states[:, self.feet_indices, 7:10]
         self.feet_pos = self.rigid_body_states[:, self.feet_indices, 0:3]
+        self.last_feet_vel = torch.zeros_like(self.feet_vel)
 
         # initialize some data used later on
         self.global_gravity = torch.tensor([0.0, 0.0, -1.0], device=self.device, dtype=torch.float).repeat(self.num_envs, 1)
@@ -1078,8 +1080,7 @@ class IsaacGymSimulator(Simulator):
         self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
         for i in range(self.num_dof):
             name = self.dof_names[i]
-            angle = self.cfg.init_state.default_joint_angles[name]
-            self.default_dof_pos[i] = angle
+            self.default_dof_pos[i] = self.cfg.init_state.default_joint_angles[name]
             found = False
             for dof_name in self.cfg.control.stiffness.keys():
                 if dof_name in name:
@@ -1123,6 +1124,31 @@ class IsaacGymSimulator(Simulator):
         if self.cfg.asset.obtain_link_contact_states:
             self.link_contact_states = 1. * (torch.norm(
                 self.link_contact_forces[:, self.contact_state_link_indices, :], dim=-1) > 1.)
+        
+        self._check_base_pos_out_of_bound()
+    
+    def _check_base_pos_out_of_bound(self):
+        """ Check if the base position is out of the terrain bounds
+        """
+        if self.cfg.terrain.mesh_type == "plane":
+            return
+        x_out_of_bound = (self.base_pos[:, 0] >= self.terrain_x_range[1]) | (
+            self.base_pos[:, 0] <= self.terrain_x_range[0])
+        y_out_of_bound = (self.base_pos[:, 1] >= self.terrain_y_range[1]) | (
+            self.base_pos[:, 1] <= self.terrain_y_range[0])
+        out_of_bound_buf = x_out_of_bound | y_out_of_bound
+        env_ids = out_of_bound_buf.nonzero(as_tuple=False).flatten()
+        if len(env_ids) == 0:
+            return
+        else:
+            # reset base position to initial position
+            self.base_pos[env_ids] = self.base_init_pos
+            self.base_pos[env_ids] += self.env_origins[env_ids]
+            self.root_states[env_ids, 0:3] = self.base_pos[env_ids]
+            env_ids_int32 = env_ids.to(dtype=torch.int32)
+            self.gym.set_actor_root_state_tensor_indexed(self.sim,
+                                                     gymtorch.unwrap_tensor(self.root_states),
+                                                     gymtorch.unwrap_tensor(env_ids_int32), len(env_ids_int32))
     
     def get_heights(self, env_ids=None):
         """ Samples heights of the terrain at required points around each robot.
@@ -1275,7 +1301,6 @@ class IsaacGymSimulator(Simulator):
         self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
     
     def reset_idx(self, env_ids):
-        self._reset_root_states(env_ids)
         
         if self.cfg.domain_rand.randomize_pd_gain:
             self._kp_scale[env_ids] = torch_rand_float(
@@ -1284,6 +1309,7 @@ class IsaacGymSimulator(Simulator):
                 self.cfg.domain_rand.kd_range[0], self.cfg.domain_rand.kd_range[1], (len(env_ids), self.num_actions), device=self.device)
         
         self.last_dof_vel[env_ids] = 0.
+        self.last_feet_vel[env_ids] = 0.
         self.last_base_lin_vel[env_ids] = 0.
         self.last_base_ang_vel[env_ids] = 0.
         
@@ -1384,7 +1410,7 @@ class IsaacGymSimulator(Simulator):
             self.env_origins[:, 1] = spacing * yy.flatten()[:self.num_envs]
             self.env_origins[:, 2] = 0.
     
-    def _reset_root_states(self, env_ids):
+    def reset_root_states(self, env_ids, base_pos, base_quat, base_lin_vel, base_ang_vel):
         """ Resets ROOT states position and velocities of selected environmments
             Sets base position based on the curriculum
             Selects randomized base velocities within -0.5:0.5 [m/s, rad/s]
@@ -1392,25 +1418,12 @@ class IsaacGymSimulator(Simulator):
             env_ids (List[int]): Environemnt ids
         """
         # base position
-        if self.custom_origins:
-            self.root_states[env_ids] = self.base_init_state
-            self.root_states[env_ids, :3] += self.env_origins[env_ids]
-            self.root_states[env_ids, :2] += torch_rand_float(-0.5, 0.5, (len(env_ids), 2), device=self.device) # xy position within 1m of the center
-        else:
-            self.root_states[env_ids] = self.base_init_state
-            self.root_states[env_ids, :3] += self.env_origins[env_ids]
+        self.root_states[env_ids, 0:3] = base_pos[:]
         # base orientation
-        roll_random_scale = self.cfg.init_state.roll_random_scale
-        pitch_random_scale = self.cfg.init_state.pitch_random_scale
-        yaw_random_scale = self.cfg.init_state.yaw_random_scale
-        self.root_states[env_ids, 3:7] = \
-            quat_from_euler_xyz(
-                torch_rand_float(-roll_random_scale, roll_random_scale, (len(env_ids), 1), self.device).view(-1),
-                torch_rand_float(-pitch_random_scale, pitch_random_scale, (len(env_ids), 1), self.device).view(-1),
-                torch_rand_float(-yaw_random_scale, yaw_random_scale, (len(env_ids), 1), self.device).view(-1)
-            )
+        self.root_states[env_ids, 3:7] = base_quat[:]
         # base velocities
-        self.root_states[env_ids, 7:13] = torch_rand_float(-0.5, 0.5, (len(env_ids), 6), device=self.device) # [7:10]: lin vel, [10:13]: ang vel
+        self.root_states[env_ids, 7:10] = base_lin_vel[:]
+        self.root_states[env_ids, 10:13] = base_ang_vel[:]
         env_ids_int32 = env_ids.to(dtype=torch.int32)
         self.gym.set_actor_root_state_tensor_indexed(self.sim,
                                                      gymtorch.unwrap_tensor(self.root_states),

@@ -38,16 +38,12 @@ A [legged_gym](https://github.com/leggedrobotics/legged_gym) based framework for
 
 Please refer to the [doc of this repo](https://genesis-lr-doc.readthedocs.io/en/latest/).
 
-> [!NOTE]
-> 1. Currently(Genesis 0.3.6), compiling with DepthCamera sensors and heightfield terrain added will invoke CUDA out of memory error (50 envs, on RTX3080 10GB). Users should use GPU with larger graphics memory.
-> 2. Try to replace mesh in robot descrption files(urdf, xml and usd) with basic geometries when using Genesis. It will slow down the simulation and potentially cause NaN values in robot states(base_ang_vel, dof_pos, dof_vel)
-
 ## 🖼️ Gallery
 
 | Robot | Sim | Real |
 |--- | --- | --- |
 | Unitree Go2 | ![](https://raw.githubusercontent.com/lupinjia/demo_imgs/refs/heads/master/ee_demo.gif) | [video](https://www.bilibili.com/video/BV1FPedzZEdi/) |
-| TRON1_PF | ![](./resources/images/tron1_pf_rough_demo.gif) | [video](https://www.bilibili.com/video/BV1MdePzcEvk/?spm_id_from=333.1387.homepage.video_card.click&vd_source=50fc92fb0e7291031bbb72e3c05b2edc) |
+| TRON1_PF | ![](https://github.com/lupinjia/genesis_lr_doc/blob/main/source/_static/images/tron1_pf_ee_demo.gif?raw=true) | [video](https://www.bilibili.com/video/BV1MdePzcEvk/?spm_id_from=333.1387.homepage.video_card.click&vd_source=50fc92fb0e7291031bbb72e3c05b2edc) |
 
 
 ## 🙏 Acknowledgements

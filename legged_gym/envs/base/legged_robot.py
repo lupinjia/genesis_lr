@@ -83,6 +83,7 @@ class LeggedRobot(BaseTask):
         self.llast_actions[:] = self.last_actions[:]
         self.last_actions[:] = self.actions[:]
         self.simulator.last_dof_vel[:] = self.simulator.dof_vel[:]
+        self.simulator.last_feet_vel[:] = self.simulator.feet_vel[:]
         
         if self.debug:
             self.simulator.draw_debug_vis()
@@ -122,6 +123,7 @@ class LeggedRobot(BaseTask):
 
         self._resample_commands(env_ids)
         self._reset_dofs(env_ids)
+        self._reset_root_states(env_ids)
         self.simulator.reset_idx(env_ids)
 
         # reset buffers
@@ -272,6 +274,23 @@ class LeggedRobot(BaseTask):
         dof_pos[:, :] = self.simulator.default_dof_pos[:] + \
             torch_rand_float(-0.2, 0.2, (len(env_ids), self.num_actions), self.device)
         self.simulator.reset_dofs(env_ids, dof_pos, dof_vel)
+    
+    def _reset_root_states(self, env_ids):
+        # base pos
+        if self.simulator.custom_origins:
+            base_pos = self.simulator.base_init_pos.reshape(1, -1).repeat(len(env_ids), 1)
+            base_pos += self.simulator.env_origins[env_ids]
+            base_pos[:, :2] += torch_rand_float(-0.5, 0.5, (len(env_ids), 2), device=self.device) # xy position within 1m of the center
+        else:
+            base_pos = self.simulator.base_init_pos.reshape(1, -1).repeat(len(env_ids), 1)
+            base_pos += self.simulator.env_origins[env_ids]
+        # base quat
+        base_quat = self.simulator.base_init_quat.reshape(1, -1).repeat(len(env_ids), 1)
+        # base lin vel
+        base_lin_vel = torch_rand_float(-0.5, 0.5, (len(env_ids), 3), self.device)
+        # base ang vel
+        base_ang_vel = torch_rand_float(-0.5, 0.5, (len(env_ids), 3), self.device)
+        self.simulator.reset_root_states(env_ids, base_pos, base_quat, base_lin_vel, base_ang_vel)
 
     def _post_physics_step_callback(self):
         """ Callback called before computing terminations, rewards, and observations
@@ -579,3 +598,8 @@ class LeggedRobot(BaseTask):
     def _reward_keep_balance(self):
         return torch.ones(
             self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
+    
+    def _reward_foot_acc(self):
+        '''reward for foot acceleration'''
+        foot_acc = (self.simulator.feet_vel - self.simulator.last_feet_vel) / self.dt
+        return torch.sum(torch.square(foot_acc), dim=(1, 2))
