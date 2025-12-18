@@ -109,7 +109,7 @@ class TRON1PF_EECfg( LeggedRobotCfg ):
             feet_distance = -100.0
             # command tracking
             tracking_lin_vel = 1.0
-            tracking_ang_vel = 0.5
+            tracking_ang_vel = 1.0
             # smooth
             lin_vel_z = -0.5
             base_height = -1.0
@@ -117,12 +117,12 @@ class TRON1PF_EECfg( LeggedRobotCfg ):
             orientation = -5.0
             dof_power = -2.e-4
             dof_acc = -2.e-7
-            # foot_acc = -1.e-5
+            foot_acc = -1.e-5
             action_rate = -0.01
             action_smoothness = -0.01
             # gait
-            biped_periodic_gait = 0.3
-            foot_clearance = 0.5
+            biped_periodic_gait = 0.5
+            foot_clearance = 0.3
         
         class periodic_reward_framework:
             '''Periodic reward framework in OSU's paper(https://arxiv.org/abs/2011.01387)'''
