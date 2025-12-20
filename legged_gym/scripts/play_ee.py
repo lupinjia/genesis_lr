@@ -25,6 +25,8 @@ def play(args):
     env_cfg.terrain.curriculum = False
     env_cfg.terrain.selected = True
     env_cfg.env.debug = True
+    env_cfg.env.debug_draw_height_points = True
+    env_cfg.env.debug_draw_height_points_around_feet = False
     env_cfg.asset.fix_base_link = False
     
     # stairs

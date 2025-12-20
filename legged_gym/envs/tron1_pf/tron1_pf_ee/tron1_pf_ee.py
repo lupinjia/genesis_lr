@@ -115,8 +115,8 @@ class TRON1PF_EE(LeggedRobot):
         # Critic observation
         single_critic_obs = torch.cat((
             obs_buf,                 # num_observations
-            domain_randomization_info,    # 19
-            gait_info,                # 2
+            domain_randomization_info,    # 22
+            gait_info,                    # 2
         ), dim=-1)
         if self.cfg.asset.obtain_link_contact_states:
             single_critic_obs = torch.cat(
@@ -130,6 +130,16 @@ class TRON1PF_EE(LeggedRobot):
             heights = torch.clip(self.simulator.base_pos[:, 2].unsqueeze(
                 1) - 0.6 - self.simulator.measured_heights, -1, 1.) * self.obs_scales.height_measurements
             single_critic_obs = torch.cat((single_critic_obs, heights), dim=-1)
+        if self.cfg.terrain.obtain_terrain_info_around_feet:
+            single_critic_obs = torch.cat(
+                (
+                    single_critic_obs,                         # previous
+                    self.simulator.normal_vector_around_feet,  # 3*number of feet = 6
+                    (self.simulator.feet_pos[:, :, 2].unsqueeze(-1) - 
+                        self.simulator.height_around_feet).flatten(1,2).clip(-1.0, 1.0),  # 9*number of feet = 18
+                ),
+                dim=-1,
+            )
         self.critic_obs_deque.append(single_critic_obs)
         self.privileged_obs_buf = torch.cat(
             [self.critic_obs_deque[i]
@@ -153,10 +163,11 @@ class TRON1PF_EE(LeggedRobot):
         # Estimator labels
         self.estimator_labels_buf = torch.cat((
             self.simulator.base_lin_vel * self.obs_scales.lin_vel,         # 3
-            self.simulator.link_contact_states, # contact states of abad, hip, knee and foot (2+2+2+2)=8
+            self.simulator.link_contact_states, # contact states of hip, knee and foot (2+2+2)=6
             torch.clip(self.simulator.feet_pos[:, :, 2] -
-                torch.mean(self.simulator.height_around_feet, dim=-1) -
+                torch.max(self.simulator.height_around_feet, dim=-1).values -
                 self.cfg.rewards.foot_height_offset, -1, 1.),  # 2
+            self.simulator.normal_vector_around_feet,  # 3*number of feet = 6
         ), dim=-1)
 
     def _init_buffers(self):
@@ -232,13 +243,18 @@ class TRON1PF_EE(LeggedRobot):
         # reset buffers
         self.llast_actions[env_ids] = 0.
         self.last_actions[env_ids] = 0.
+        self.actions[env_ids] = 0.
         self.feet_air_time[env_ids] = 0.
         self.episode_length_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
         self.fail_buf[env_ids] = 0
         # Periodic Reward Framework buffer reset
-        self.gait_time[env_ids] = 0.0
-        self.phi[env_ids] = 0.0
+        self.theta[env_ids, 0] = self.cfg.rewards.periodic_reward_framework.theta_left + \
+            torch.rand(len(env_ids), 1, device=self.device).squeeze(1)  # add small random offset
+        self.theta[env_ids, 1] = self.theta[env_ids, 0] + (self.cfg.rewards.periodic_reward_framework.theta_right -
+                                                           self.cfg.rewards.periodic_reward_framework.theta_left)
+        self.gait_time[env_ids] = torch.rand(len(env_ids), 1, device=self.device) * self.gait_period[env_ids]
+        self.phi[env_ids] = self.gait_time[env_ids] / self.gait_period[env_ids]
         self.clock_input[env_ids, :] = 0.0
 
         # fill extras
@@ -447,6 +463,13 @@ class TRON1PF_EE(LeggedRobot):
         # reward for the whole body
         biped_reward = biped_reward_left.flatten() + biped_reward_right.flatten()
         return torch.exp(biped_reward)
+    
+    def _reward_tracking_base_height(self):
+        # Penalize base height away from target
+        base_height = torch.mean(self.simulator.base_pos[:, 2].unsqueeze(
+            1) - self.simulator.measured_heights, dim=1)
+        rew = torch.square(base_height - self.cfg.rewards.base_height_target)
+        return torch.exp(-rew / self.cfg.rewards.base_height_tracking_sigma)
     
     def _reward_feet_air_time(self):
         # Reward long steps
