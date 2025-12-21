@@ -23,6 +23,7 @@ class ActorCriticEE(nn.Module):
                  estimator_hidden_dims=[256, 128],
                  activation='elu',
                  init_noise_std=1.0,
+                 clip_actions=100.0,
                  **kwargs):
         if kwargs:
             print("ActorCritic.__init__ got unexpected arguments, which will be ignored: " +
@@ -47,6 +48,7 @@ class ActorCriticEE(nn.Module):
                 actor_layers.append(
                     nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1]))
                 actor_layers.append(activation)
+        actor_layers.append(nn.Hardtanh(max_val=clip_actions, min_val=-clip_actions))
         self.actor = nn.Sequential(*actor_layers)
 
         # Value function

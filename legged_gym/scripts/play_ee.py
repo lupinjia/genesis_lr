@@ -27,6 +27,7 @@ def play(args):
     env_cfg.env.debug = True
     env_cfg.env.debug_draw_height_points = True
     env_cfg.env.debug_draw_height_points_around_feet = False
+    env_cfg.init_state.sit_init_percent = 1.0
     env_cfg.asset.fix_base_link = False
     
     # stairs
@@ -81,7 +82,7 @@ def play(args):
     for i in range(10*int(env.max_episode_length)):
         estimator_estimation = estimator(estimator_features.detach())
         actions = policy(estimator_features.detach(), estimator_estimation.detach())
-        # actions = torch.zeros_like(actions)  # zero action for testing
+        # print(f"max action: {torch.max(actions).item():.3f}")
         estimator_features, estimator_labels, _, rews, dones, infos = env.step(actions.detach())
         
         # print debug info

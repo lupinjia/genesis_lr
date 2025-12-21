@@ -172,6 +172,9 @@ class TRON1PF_EECfg( LeggedRobotCfg ):
         joint_friction_range = [0.00, 0.01]
         randomize_joint_damping = True
         joint_damping_range = [1.4, 1.45]
+    
+    class normalization( LeggedRobotCfg.normalization ):
+        clip_actions = 20.
 
 class TRON1PF_EECfgPPO( LeggedRobotCfgPPO ):
     seed = 1
@@ -181,6 +184,7 @@ class TRON1PF_EECfgPPO( LeggedRobotCfgPPO ):
         actor_hidden_dims = [512, 256, 128]
         critic_hidden_dims = [1024, 256, 128]
         estimator_hidden_dims = [256, 128]
+        clip_actions = TRON1PF_EECfg.normalization.clip_actions
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         estimator_lr = 2.e-4
         num_estimator_epochs = 2
