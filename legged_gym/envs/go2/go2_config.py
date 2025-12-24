@@ -125,16 +125,16 @@ class GO2CfgPPO( LeggedRobotCfgPPO ):
         critic_hidden_dims = [512, 256, 128]
         activation = 'elu' # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
         # only for 'ActorCriticRecurrent':
-        rnn_type = 'lstm'
-        rnn_hidden_size = 512
-        rnn_num_layers = 1
+        # rnn_type = 'lstm'
+        # rnn_hidden_size = 512
+        # rnn_num_layers = 1
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
-        policy_class_name = 'ActorCriticRecurrent'
+        policy_class_name = 'ActorCritic'
         run_name = 'with_lin'
         experiment_name = 'go2'
         save_interval = 200
-        load_run = "Sep12_17-27-42_without_lin"
+        load_run = "Dec24_15-37-34_with_lin"
         checkpoint = -1
         max_iterations = 1400

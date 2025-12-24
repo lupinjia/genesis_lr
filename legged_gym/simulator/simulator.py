@@ -254,7 +254,7 @@ class GenesisSimulator(Simulator):
             self.cfg.init_state.pos, device=self.device
         )
         self.base_init_quat = torch.tensor(
-            self.cfg.init_state.rot_gs, device=self.device
+            self.cfg.init_state.rot, device=self.device
         )
         self.base_lin_vel = torch.zeros(
             (self.num_envs, 3), device=self.device, dtype=torch.float)
@@ -955,7 +955,7 @@ class IsaacGymSimulator(Simulator):
                 contact_state_link_names.extend([s for s in body_names if name in s])
 
         self.base_init_pos = torch.tensor(self.cfg.init_state.pos, dtype=torch.float, device=self.device, requires_grad=False)
-        self.base_init_quat = torch.tensor(self.cfg.init_state.rot_gym, dtype=torch.float, device=self.device, requires_grad=False)
+        self.base_init_quat = torch.tensor(self.cfg.init_state.rot, dtype=torch.float, device=self.device, requires_grad=False)
         start_pose = gymapi.Transform()
         start_pose.p = gymapi.Vec3(*self.base_init_pos)
 

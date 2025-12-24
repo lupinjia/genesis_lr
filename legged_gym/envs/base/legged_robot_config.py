@@ -55,8 +55,10 @@ class LeggedRobotCfg(BaseConfig):
 
     class init_state:
         pos = [0.0, 0.0, 1.] # x,y,z [m]
-        rot_gs = [1.0, 0.0, 0.0, 0.0]  # w,x,y,z [quat]
-        rot_gym = [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat], quaternion sequence definitions are different in gym and genesis
+        # [Convention] When calling reset_root_states() of simulator, the input quaternion is in gym format [x,y,z,w]
+        #  simulators will convert it to their own format if needed.
+        rot = [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat], quaternion sequence definitions are different in gym and genesis
+        rot_gs = [1.0, 0.0, 0.0, 0.0] # w,x,y,z [quat] for create_envs in Genesis simulator
         lin_vel = [0.0, 0.0, 0.0]  # x,y,z [m/s]
         ang_vel = [0.0, 0.0, 0.0]  # x,y,z [rad/s]
         # initial state randomization
@@ -194,7 +196,7 @@ class LeggedRobotCfg(BaseConfig):
         ref_env = 0
         pos = [2, 2, 2]       # [m]
         lookat = [0., 0, 1.]  # [m]
-        rendered_envs_idx = [i for i in range(5)]  # number of environments to be rendered
+        rendered_envs_idx = [i for i in range(5)]  # [Genesis] number of environments to be rendered, if not headless
     
     class sensor:
         add_depth = False

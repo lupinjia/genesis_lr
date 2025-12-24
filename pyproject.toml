@@ -28,9 +28,9 @@ isaacgym = [
     "onnx>=1.17.0"
 ]
 genesis = [
-    "torch==2.7.1+cu118",
-    "torchvision==0.22.1+cu118",
-    "genesis-world==0.3.7", # genesis>=0.3.8 does not support torch<2.8.0
+    "torch==2.8.0+cu126",
+    "torchvision==0.23.0+cu126",
+    "genesis-world==0.3.10", # genesis>=0.3.8 does not support torch<2.8.0
     "numpy==2.1.2",
     "pandas==2.3.2",
     "scipy==1.15.3",
