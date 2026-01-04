@@ -41,6 +41,8 @@ def play(args):
     #                                   "platform_size": 3.0}
     
     env_cfg.env.debug = True
+    env_cfg.env.debug_draw_height_points = False
+    env_cfg.env.debug_draw_height_points_around_feet = False
     # velocity range
     env_cfg.commands.ranges.lin_vel_x = [1.0, 1.0]
     env_cfg.commands.ranges.lin_vel_y = [0.0, 0.0]
