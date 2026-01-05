@@ -1,9 +1,10 @@
+from legged_gym import *
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
 class GO2Cfg( LeggedRobotCfg ):
     
     class env( LeggedRobotCfg.env ):
-        num_envs = 100
+        num_envs = 2048
         num_observations = 45 # 48 for only sim, 45 for deployment
         num_privileged_obs = None
         num_actions = 12
@@ -132,9 +133,13 @@ class GO2CfgPPO( LeggedRobotCfgPPO ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
         policy_class_name = 'ActorCritic'
-        run_name = 'with_lin'
+        run_name = 'simple_rl'
+        if SIMULATOR == "genesis":
+            run_name += '_genesis'
+        elif SIMULATOR == "isaacgym":
+            run_name += '_isaacgym'
         experiment_name = 'go2'
         save_interval = 200
-        load_run = "Dec24_15-37-34_with_lin"
+        load_run = "Jan05_09-43-56_simple_rl_genesis"
         checkpoint = -1
-        max_iterations = 1400
+        max_iterations = 1500
